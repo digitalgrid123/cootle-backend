@@ -14,6 +14,7 @@ class User(AbstractUser):
     def generate_verification_code(self):
         self.verification_code = ''.join(random.choices(string.digits, k=6))
         self.save()
+        return self.verification_code
 
 class Company(models.Model):
     name = models.CharField(max_length=255, unique=True)

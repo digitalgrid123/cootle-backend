@@ -12,3 +12,10 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
 class UserVerificationSerializer(serializers.ModelSerializer):
     email = serializers.EmailField()
     verification_code = serializers.CharField()
+    class Meta:
+        model = User
+        fields = ['email', 'verification_code']
+        extra_kwargs = {
+            'email': {'required': True},
+            'verification_code': {'required': True},
+        }
