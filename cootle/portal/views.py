@@ -69,7 +69,12 @@ class UserVerificationView(generics.GenericAPIView):
         if user.verification_code == verification_code:
             user.is_verified = True
             user.save()
-            return Response({'status': 'User verified'}, status=status.HTTP_200_OK)
+            refresh = RefreshToken.for_user(user)
+            return Response({
+                'status': 'User verified',
+                'access': str(refresh.access_token),
+                'refresh': str(refresh)
+            }, status=status.HTTP_200_OK)
         else:
             return Response({'status': 'Invalid verification code'}, status=status.HTTP_400_BAD_REQUEST)
         
