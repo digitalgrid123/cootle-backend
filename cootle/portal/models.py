@@ -10,6 +10,7 @@ class User(AbstractUser):
     is_verified = models.BooleanField(default=False)
     is_admin = models.BooleanField(default=False)
     verification_code = models.CharField(max_length=6, blank=True, null=True)
+    fullname = models.TextField(max_length=30, default="User#"+str(id))
 
     def generate_verification_code(self):
         self.verification_code = ''.join(random.choices(string.digits, k=6))
@@ -18,6 +19,7 @@ class User(AbstractUser):
 
 class Company(models.Model):
     name = models.CharField(max_length=255, unique=True)
+    logo = models.ImageField(upload_to='images/company-logos/', default=None)
 #     members = models.ManyToManyField(User, through='Membership')
     created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(default=timezone.now)
@@ -33,3 +35,16 @@ class Membership(models.Model):
     
     class Meta:
         unique_together = ('user', 'company', 'is_admin')
+
+
+class Invitation(models.Model):
+    email = models.EmailField()
+    company = models.ForeignKey(Company, on_delete=models.CASCADE)
+    invited_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='invitations')
+    token = models.CharField(max_length=255, unique=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    accepted = models.BooleanField(default=False)
+    accepted_at = models.DateTimeField(null=True, blank=True)
+
+    def __str__(self):
+        return f"{self.email} - {self.company.name}"

@@ -7,3 +7,19 @@ def send_verification_email(email, code):
     email_from = settings.EMAIL_HOST_USER
     recipient_list = [email]
     send_mail(subject, message, email_from, recipient_list)
+
+def send_login_email(email, code):
+    subject = 'Your Login Code'
+    message = f'Your login code is {code}'
+    email_from = settings.EMAIL_HOST_USER
+    recipient_list = [email]
+    send_mail(subject, message, email_from, recipient_list)
+
+def send_invitation_email(invitation):
+    subject = 'You are invited to join a company'
+    message = f'Please use the following link to accept the invitation: ' \
+              f'http://yourdomain.com/accept-invitation/?token={invitation.token}'
+    from_email = settings.EMAIL_HOST_USER
+    recipient_list = [invitation.email]
+
+    send_mail(subject, message, from_email, recipient_list)
