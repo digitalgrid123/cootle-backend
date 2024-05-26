@@ -338,6 +338,6 @@ class CompanyListView(generics.ListAPIView):
     )
     def get(self, request, *args, **kwargs):
         user = request.user
-        companies = user.companies.all()
+        companies = Company.objects.filter(membership__user=user)
         serializer = self.get_serializer(companies, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
