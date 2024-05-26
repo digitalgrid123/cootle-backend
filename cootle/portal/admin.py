@@ -15,8 +15,8 @@ admin.site.register(Company)
 
 def assign_company(user, company, is_admin=False):
     # Check if the user is already an admin in any company
-    if is_admin and Membership.objects.filter(user=user, is_admin=True).exists():
-        raise ValidationError('A user can only be an admin for one company.')
+    # if is_admin and Membership.objects.filter(user=user, is_admin=True).exists():
+    #     raise ValidationError('A user can only be an admin for one company.')
 
     with transaction.atomic():
         # Create the membership record

@@ -45,6 +45,7 @@ class Invitation(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     accepted = models.BooleanField(default=False)
     accepted_at = models.DateTimeField(null=True, blank=True)
+    rejected = models.BooleanField(default=False)
 
     def __str__(self):
         return f"{self.email} - {self.company.name}"

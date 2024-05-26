@@ -11,7 +11,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from .permissions import IsAdminUser
 from .models import User, Company, Invitation, Membership
-from .serializers import UserAccessSerializer, UserVerificationSerializer, UserUpdateSerializer, CompanySerializer, InvitationSerializer, AcceptInvitationSerializer
+from .serializers import UserSerializer, UserAccessSerializer, UserVerificationSerializer, UserUpdateSerializer, CompanySerializer, InvitationSerializer, AcceptEmailInvitationSerializer, AcceptInvitationSerializer
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 from .utils import send_verification_email, send_login_email, send_invitation_email
@@ -158,6 +158,34 @@ class UserUpdateView(generics.UpdateAPIView):
         serializer.save()
         return Response({'status': 'User updated successfully'}, status=status.HTTP_200_OK)
 
+class UserInfoView(generics.GenericAPIView):
+    serializer_class = UserSerializer
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(
+        operation_description="Get the user's info",
+        responses={200: "User info."}
+    )
+    def get(self, request, *args, **kwargs):
+        user = request.user
+        serializer = self.get_serializer(user)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+class DashboardInfoView(generics.GenericAPIView):
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(
+        operation_description="Get the user's dashboard info",
+        responses={200: "Dashboard info."}
+    )
+    def get(self, request, *args, **kwargs):
+        user = request.user
+        company = Company.objects.filter(membership__user=user).first()
+        if company:
+            company_serializer = CompanySerializer(company)
+            return Response({'status': 'Dashboard info', 'user': user.fullname, 'email': user.email, 'company': company_serializer.data}, status=status.HTTP_200_OK)
+        else:
+            return Response({'status': 'Dashboard info', 'user': user.fullname, 'email': user.email}, status=status.HTTP_200_OK)
 
 class InviteUserView(generics.CreateAPIView):
     serializer_class = InvitationSerializer
@@ -184,8 +212,8 @@ class InviteUserView(generics.CreateAPIView):
         send_invitation_email(invitation)
         return Response({'status': 'Invitation sent successfully'}, status=status.HTTP_201_CREATED)
 
-class AcceptInvitationView(generics.GenericAPIView):
-    serializer_class = AcceptInvitationSerializer
+class AcceptEmailInvitationView(generics.GenericAPIView):
+    serializer_class = AcceptEmailInvitationSerializer
     permission_classes = [AllowAny]
 
     @swagger_auto_schema(
@@ -219,6 +247,70 @@ class AcceptInvitationView(generics.GenericAPIView):
         return Response({'status': 'Invitation accepted successfully'}, status=status.HTTP_200_OK)
 
 
+class AcceptInvitationView(generics.GenericAPIView):
+    serializer_class = AcceptInvitationSerializer
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(
+        operation_description="Accept an invitation to join a company",
+        responses={200: "Invitation accepted successfully."}
+    )
+    def post(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        email = serializer.validated_data['email']
+        company = serializer.validated_data['company']
+
+        try:
+            invitation = Invitation.objects.get(email=email, company=company, accepted=False)
+        except Invitation.DoesNotExist:
+            raise ValidationError('Invalid or expired invitation.')
+
+        user = request.user
+        with transaction.atomic():
+            invitation.accepted = True
+            invitation.accepted_at = timezone.now()
+            invitation.save()
+            assign_company(user, company, is_admin=False)
+
+        return Response({'status': 'Invitation accepted successfully'}, status=status.HTTP_200_OK)
+
+class RejectInvitationView(generics.GenericAPIView):
+    serializer_class = AcceptInvitationSerializer
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(
+        operation_description="Reject an invitation to join a company",
+        responses={200: "Invitation rejected successfully."}
+    )
+    def post(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        email = serializer.validated_data['email']
+        company = serializer.validated_data['company']
+
+        try:
+            invitation = Invitation.objects.get(email=email, company=company, accepted=False)
+        except Invitation.DoesNotExist:
+            raise ValidationError('Invalid or expired invitation.')
+
+        invitation.rejected = True
+        invitation.save()
+        return Response({'status': 'Invitation rejected successfully'}, status=status.HTTP_200_OK)
+
+class InvitationListView(generics.ListAPIView):
+    serializer_class = InvitationSerializer
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(
+        operation_description="List all invitations for a user",
+        responses={200: "List of invitations."}
+    )
+    def get(self, request, *args, **kwargs):
+        user = request.user
+        invitations = Invitation.objects.filter(email=user.email)
+        serializer = self.get_serializer(invitations, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 class CreateCompanyView(generics.CreateAPIView):
@@ -236,3 +328,16 @@ class CreateCompanyView(generics.CreateAPIView):
         assign_company(request.user, company, is_admin=True)
         return Response({'status': 'Company created successfully'}, status=status.HTTP_201_CREATED)
     
+class CompanyListView(generics.ListAPIView):
+    serializer_class = CompanySerializer
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(
+        operation_description="List all companies for a user",
+        responses={200: "List of companies."}
+    )
+    def get(self, request, *args, **kwargs):
+        user = request.user
+        companies = user.companies.all()
+        serializer = self.get_serializer(companies, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)

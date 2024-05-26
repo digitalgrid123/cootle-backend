@@ -1,6 +1,15 @@
 from rest_framework import serializers
 from .models import User, Company, Invitation
 
+class UserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ['email', 'fullname', 'is_verified', 'is_admin']
+        extra_kwargs = {
+            'email': {'required': True},
+            'fullname': {'required': True},
+        }
+
 class UserAccessSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
@@ -39,6 +48,15 @@ class InvitationSerializer(serializers.ModelSerializer):
         model = Invitation
         fields = ['email', 'company']
 
-class AcceptInvitationSerializer(serializers.Serializer):
+class AcceptEmailInvitationSerializer(serializers.Serializer):
     token = serializers.CharField()
     email = serializers.EmailField()
+
+class AcceptInvitationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Invitation
+        fields = ['email', 'company']
+        extra_kwargs = {
+            'email': {'required': True},
+            'company': {'required': True},
+        }

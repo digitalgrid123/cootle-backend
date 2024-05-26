@@ -3,7 +3,7 @@ from django.urls import path, re_path
 from rest_framework import permissions
 from drf_yasg.views import get_schema_view
 from drf_yasg import openapi
-from portal.views import UserRegistrationView, UserVerificationView, UserLoginView, UserLoginVerificationView, UserUpdateView, CreateCompanyView, InviteUserView, AcceptInvitationView
+from portal.views import DashboardInfoView, UserRegistrationView, UserVerificationView, UserLoginView, UserLoginVerificationView, UserUpdateView, UserInfoView, CreateCompanyView, InviteUserView, AcceptEmailInvitationView, AcceptInvitationView, RejectInvitationView
 from rest_framework_simplejwt.views import (
       TokenObtainPairView,
       TokenRefreshView,
@@ -23,14 +23,18 @@ schema_view = get_schema_view(
 )
 
 urlpatterns = [
+   path('api/dashboard/', DashboardInfoView.as_view(), name='dashboard-info'),
    path('api/user/register/', UserRegistrationView.as_view(), name='user-registration'),
    path('api/user/verify/', UserVerificationView.as_view(), name='user-verification'),
    path('api/user/login/', UserLoginView.as_view(), name='user-login'),
    path('api/user/login/verify/', UserLoginVerificationView.as_view(), name='user-login-verification'),
    path('api/user/update/', UserUpdateView.as_view(), name='user-update'),
+   path('api/user/info/', UserInfoView.as_view(), name='user-info'),
    path('api/company/create/', CreateCompanyView.as_view(), name='create-company'),
    path('api/invite/', InviteUserView.as_view(), name='invite-user'),
-   path('api/accept/', AcceptInvitationView.as_view(), name='accept-invitation'),
+   path('api/accept/', AcceptEmailInvitationView.as_view(), name='accept-email-invitation'),
+   path('api/invite/accept/', AcceptInvitationView.as_view(), name='accept-invitation'),
+   path('api/invite/reject/', RejectInvitationView.as_view(), name='reject-invitation'),
        # ... your other urls
    path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
    path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
