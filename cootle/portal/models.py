@@ -19,7 +19,7 @@ class User(AbstractUser):
 
 class Company(models.Model):
     name = models.CharField(max_length=255, unique=True)
-    logo = models.ImageField(upload_to='images/company-logos/', default=None)
+    logo = models.ImageField(upload_to='images/company-logos/', blank=True, null=True)
 #     members = models.ManyToManyField(User, through='Membership')
     created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(default=timezone.now)
