@@ -153,8 +153,14 @@ class UserLogoutView(generics.GenericAPIView):
         responses={200: "User logged out successfully."}
     )
     def post(self, request, *args, **kwargs):
-        request.user.auth_token.delete()
-        return Response({'status': 'User logged out successfully'}, status=status.HTTP_200_OK)
+        try:
+            refresh_token = request.data["refresh"]
+            token = RefreshToken(refresh_token)
+            token.blacklist()
+
+            return Response({'status': 'User logged out successfully'}, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({'status': 'Error', 'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)
         
 class UserUpdateView(generics.UpdateAPIView):
     serializer_class = UserUpdateSerializer
