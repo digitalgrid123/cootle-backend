@@ -4,7 +4,7 @@ from .models import User, Company, Invitation
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ['email', 'fullname', 'is_verified', 'is_admin']
+        fields = ['email', 'fullname', 'is_verified', 'is_admin', 'profile_pic']
         extra_kwargs = {
             'email': {'required': True},
             'fullname': {'required': True},
@@ -32,7 +32,7 @@ class UserVerificationSerializer(serializers.ModelSerializer):
 class UserUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ['fullname']
+        fields = ['fullname', 'profile_pic']
 
 
 class CompanySerializer(serializers.ModelSerializer):

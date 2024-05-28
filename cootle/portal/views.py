@@ -339,6 +339,7 @@ class CreateCompanyView(generics.CreateAPIView):
         assign_company(request.user, company, is_admin=True)
         return Response({'status': 'Company created successfully'}, status=status.HTTP_201_CREATED)
     
+    
 class CompanyListView(generics.ListAPIView):
     serializer_class = CompanySerializer
     permission_classes = [IsAuthenticated]

@@ -11,6 +11,7 @@ class User(AbstractUser):
     is_admin = models.BooleanField(default=False)
     verification_code = models.CharField(max_length=6, blank=True, null=True)
     fullname = models.TextField(max_length=30, default="User#"+str(id))
+    profile_pic = models.ImageField(upload_to='images/profile-pics/', blank=True, null=True)
 
     def generate_verification_code(self):
         self.verification_code = ''.join(random.choices(string.digits, k=6))
