@@ -3,7 +3,7 @@ from django.urls import path, re_path
 from rest_framework import permissions
 from drf_yasg.views import get_schema_view
 from drf_yasg import openapi
-from portal.views import DashboardInfoView, UserRegistrationView, UserVerificationView, UserLoginView, UserLoginVerificationView, UserUpdateView, UserInfoView, CreateCompanyView, CompanyListView, InviteUserView, AcceptEmailInvitationView, AcceptInvitationView, RejectInvitationView, InvitationListView
+from portal.views import DashboardInfoView, UserRegistrationView, UserVerificationView, UserLoginView, UserLoginVerificationView, UserLogoutView, UserUpdateView, UserInfoView, CreateCompanyView, CompanyListView, InviteUserView, AcceptEmailInvitationView, AcceptInvitationView, RejectInvitationView, InvitationListView
 from rest_framework_simplejwt.views import (
       TokenObtainPairView,
       TokenRefreshView,
@@ -28,6 +28,7 @@ urlpatterns = [
    path('api/user/verify/', UserVerificationView.as_view(), name='user-verification'),
    path('api/user/login/', UserLoginView.as_view(), name='user-login'),
    path('api/user/login/verify/', UserLoginVerificationView.as_view(), name='user-login-verification'),
+   path('api/user/logout/', UserLogoutView.as_view(), name='user-logout'),
    path('api/user/update/', UserUpdateView.as_view(), name='user-update'),
    path('api/user/info/', UserInfoView.as_view(), name='user-info'),
    path('api/company/create/', CreateCompanyView.as_view(), name='create-company'),

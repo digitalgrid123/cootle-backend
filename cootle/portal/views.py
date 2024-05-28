@@ -145,6 +145,17 @@ class UserLoginVerificationView(generics.GenericAPIView):
         else:
             return Response({'status': 'Invalid login code'}, status=status.HTTP_400_BAD_REQUEST)
         
+class UserLogoutView(generics.GenericAPIView):
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(
+        operation_description="Logout the user",
+        responses={200: "User logged out successfully."}
+    )
+    def post(self, request, *args, **kwargs):
+        request.user.auth_token.delete()
+        return Response({'status': 'User logged out successfully'}, status=status.HTTP_200_OK)
+        
 class UserUpdateView(generics.UpdateAPIView):
     serializer_class = UserUpdateSerializer
 
