@@ -198,11 +198,13 @@ class DashboardInfoView(generics.GenericAPIView):
     def get(self, request, *args, **kwargs):
         user = request.user
         company = Company.objects.filter(membership__user=user).first()
+        user_serializer = UserSerializer(user)
+        
         if company:
             company_serializer = CompanySerializer(company)
-            return Response({'status': 'Dashboard info', 'user': user.fullname, 'email': user.email, 'company': company_serializer.data}, status=status.HTTP_200_OK)
+            return Response({'status': 'Dashboard info', 'user': user_serializer.data, 'company': company_serializer.data}, status=status.HTTP_200_OK)
         else:
-            return Response({'status': 'Dashboard info', 'user': user.fullname, 'email': user.email}, status=status.HTTP_200_OK)
+            return Response({'status': 'Dashboard info', 'user': user_serializer.data}, status=status.HTTP_200_OK)
 
 class InviteUserView(generics.CreateAPIView):
     serializer_class = InvitationSerializer
