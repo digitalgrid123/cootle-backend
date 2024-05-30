@@ -4,20 +4,38 @@ from django.core.mail import send_mail
 from django.utils.crypto import get_random_string
 from django.utils import timezone
 from django.db import transaction
+from django.http import HttpResponse
 from rest_framework import status, generics
 from rest_framework.response import Response
 from rest_framework.exceptions import ValidationError
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework.views import APIView
 from .permissions import IsAdminUser
 from .models import User, Company, Invitation, Membership
-from .serializers import UserSerializer, UserAccessSerializer, UserVerificationSerializer, UserUpdateSerializer, CompanySerializer, InvitationSerializer, AcceptEmailInvitationSerializer, AcceptInvitationSerializer
+from .serializers import UserSerializer, UserAccessSerializer, UserVerificationSerializer, UserUpdateSerializer, CompanySerializer, InvitationSerializer, InvitationListSerializer, AcceptEmailInvitationSerializer, AcceptInvitationSerializer
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 from .utils import send_verification_email, send_login_email, send_invitation_email
 from .admin import assign_company
 
 # Create your views here.
+
+
+def set_session(request):
+    request.session['current_company_id'] = 1  # Set session data
+    return HttpResponse("Session data set")
+
+def get_session(request):
+    current_company_id = request.session.get('current_company_id', 'Not set')  # Get session data
+    return HttpResponse(f"Current company ID: {current_company_id}")
+
+def delete_session(request):
+    try:
+        del request.session['current_company_id']
+    except KeyError:
+        pass
+    return HttpResponse("Session data deleted")
 
 class UserRegistrationView(generics.CreateAPIView):
     serializer_class = UserAccessSerializer
@@ -196,15 +214,23 @@ class DashboardInfoView(generics.GenericAPIView):
         responses={200: "Dashboard info."}
     )
     def get(self, request, *args, **kwargs):
-        user = request.user
-        company = Company.objects.filter(membership__user=user).first()
-        user_serializer = UserSerializer(user)
+        current_company_id = request.session.get('current_company_id')
+        if not current_company_id:
+            return Response({'status': 'No company selected'}, status=status.HTTP_400_BAD_REQUEST)
         
-        if company:
+        try:
+            company = Company.objects.get(id=current_company_id)
             company_serializer = CompanySerializer(company)
-            return Response({'status': 'Dashboard info', 'user': user_serializer.data, 'company': company_serializer.data}, status=status.HTTP_200_OK)
-        else:
-            return Response({'status': 'Dashboard info', 'user': user_serializer.data}, status=status.HTTP_200_OK)
+            user = request.user
+            return Response({
+                'status': 'Dashboard info',
+                'user': user.fullname,
+                'email': user.email,
+                'profile_pic': user.profile_pic.url if user.profile_pic else None,
+                'company': company_serializer.data
+            }, status=status.HTTP_200_OK)
+        except Company.DoesNotExist:
+            return Response({'status': 'Company does not exist'}, status=status.HTTP_404_NOT_FOUND)
 
 class InviteUserView(generics.CreateAPIView):
     serializer_class = InvitationSerializer
@@ -230,7 +256,7 @@ class InviteUserView(generics.CreateAPIView):
         invitation.save()
         send_invitation_email(invitation)
         return Response({'status': 'Invitation sent successfully'}, status=status.HTTP_201_CREATED)
-
+    
 class AcceptEmailInvitationView(generics.GenericAPIView):
     serializer_class = AcceptEmailInvitationSerializer
     permission_classes = [AllowAny]
@@ -243,12 +269,13 @@ class AcceptEmailInvitationView(generics.GenericAPIView):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         token = serializer.validated_data['token']
-        email = serializer.validated_data['email']
 
         try:
-            invitation = Invitation.objects.get(token=token, email=email, accepted=False)
+            invitation = Invitation.objects.get(token=token, accepted=False)
         except Invitation.DoesNotExist:
             raise ValidationError('Invalid or expired token.')
+
+        email = invitation.email  # Fetch email from the invitation object
 
         user, created = User.objects.get_or_create(email=email)
         if created:
@@ -331,6 +358,31 @@ class InvitationListView(generics.ListAPIView):
         serializer = self.get_serializer(invitations, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
+class ListInvitationsView(generics.ListAPIView):
+    serializer_class = InvitationListSerializer
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(
+        operation_description="List invitations sent by the logged-in user from the current company",
+        responses={200: InvitationSerializer(many=True)}
+    )
+    def get(self, request, *args, **kwargs):
+        user = request.user
+        current_company_id = request.session.get('current_company_id')
+
+        if not current_company_id:
+            return Response({'status': 'No company selected'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            company = Company.objects.get(id=current_company_id)
+            if user.membership_set.filter(company=company, is_admin=True).exists():
+                invitations = Invitation.objects.filter(company=company, invited_by=user)
+                serializer = self.get_serializer(invitations, many=True)
+                return Response(serializer.data, status=status.HTTP_200_OK)
+            else:
+                return Response({'status': 'User is not an admin of this company'}, status=status.HTTP_403_FORBIDDEN)
+        except Company.DoesNotExist:
+            return Response({'status': 'Company does not exist'}, status=status.HTTP_404_NOT_FOUND)
 
 class CreateCompanyView(generics.CreateAPIView):
     serializer_class = CompanySerializer
@@ -346,6 +398,61 @@ class CreateCompanyView(generics.CreateAPIView):
         company = serializer.save()
         assign_company(request.user, company, is_admin=True)
         return Response({'status': 'Company created successfully'}, status=status.HTTP_201_CREATED)
+    
+class SetCurrentCompanyView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(
+        operation_description="Set the current company for a user",
+        responses={
+            200: "Current company set successfully.",
+            400: "Company ID is required.",
+            403: "User is not an admin of this company.",
+            404: "Company does not exist."
+        }
+    )
+    def post(self, request, *args, **kwargs):
+        company_id = request.data.get('company_id')
+        if not company_id:
+            return Response({'status': 'Company ID is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            company = Company.objects.get(id=company_id)
+            if request.user.membership_set.filter(company=company, is_admin=True).exists():
+                request.session['current_company_id'] = company_id
+                return Response({'status': 'Current company set successfully'}, status=status.HTTP_200_OK)
+            else:
+                return Response({'status': 'User is not an admin of this company'}, status=status.HTTP_403_FORBIDDEN)
+        except Company.DoesNotExist:
+            return Response({'status': 'Company does not exist'}, status=status.HTTP_404_NOT_FOUND)
+
+class EditCompanyView(generics.UpdateAPIView):
+    serializer_class = CompanySerializer
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(
+        operation_description="Edit a company",
+        responses={200: "Company updated successfully."}
+    )
+    def put(self, request, *args, **kwargs):
+        user = request.user
+        current_company_id = request.session.get('current_company_id')
+
+        if not current_company_id:
+            return Response({'status': 'No company selected'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            company = Company.objects.get(id=current_company_id)
+            membership = user.membership_set.get(company=company, is_admin=True)
+        except Company.DoesNotExist:
+            return Response({'status': 'Company does not exist'}, status=status.HTTP_404_NOT_FOUND)
+        except Membership.DoesNotExist:
+            raise ValidationError('User is not associated with the selected company.')
+
+        serializer = self.get_serializer(company, data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response({'status': 'Company updated successfully'}, status=status.HTTP_200_OK)
     
     
 class CompanyListView(generics.ListAPIView):

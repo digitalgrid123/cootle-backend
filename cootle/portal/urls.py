@@ -3,7 +3,7 @@ from django.urls import path, re_path
 from rest_framework import permissions
 from drf_yasg.views import get_schema_view
 from drf_yasg import openapi
-from portal.views import DashboardInfoView, UserRegistrationView, UserVerificationView, UserLoginView, UserLoginVerificationView, UserUpdateView, UserInfoView, CreateCompanyView, CompanyListView, InviteUserView, AcceptEmailInvitationView, AcceptInvitationView, RejectInvitationView, InvitationListView
+from portal.views import DashboardInfoView, UserRegistrationView, UserVerificationView, UserLoginView, UserLoginVerificationView, UserUpdateView, UserInfoView, CreateCompanyView, SetCurrentCompanyView, EditCompanyView, CompanyListView, InviteUserView, AcceptEmailInvitationView, AcceptInvitationView, RejectInvitationView, InvitationListView, ListInvitationsView
 from rest_framework_simplejwt.views import (
       TokenObtainPairView,
       TokenRefreshView,
@@ -32,12 +32,15 @@ urlpatterns = [
    path('api/user/update/', UserUpdateView.as_view(), name='user-update'),
    path('api/user/info/', UserInfoView.as_view(), name='user-info'),
    path('api/company/create/', CreateCompanyView.as_view(), name='create-company'),
+   path('api/company/set/', SetCurrentCompanyView.as_view(), name='set-current-company'),
+   path('api/company/edit/', EditCompanyView.as_view(), name='edit-company'),
    path('api/company/list/', CompanyListView.as_view(), name='company-list'),
    path('api/invite/', InviteUserView.as_view(), name='invite-user'),
    path('api/accept/', AcceptEmailInvitationView.as_view(), name='accept-email-invitation'),
    path('api/invite/accept/', AcceptInvitationView.as_view(), name='accept-invitation'),
    path('api/invite/reject/', RejectInvitationView.as_view(), name='reject-invitation'),
    path('api/invitations/', InvitationListView.as_view(), name='invitations-list'),
+   path('api/invitations/list/', ListInvitationsView.as_view(), name='list-invitations'),
        # ... your other urls
    path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
    path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),

@@ -35,7 +35,7 @@ class Membership(models.Model):
     is_admin = models.BooleanField(default=False)
     
     class Meta:
-        unique_together = ('user', 'company', 'is_admin')
+        unique_together = ('user', 'company')
 
 
 class Invitation(models.Model):

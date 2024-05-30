@@ -38,7 +38,7 @@ class UserUpdateSerializer(serializers.ModelSerializer):
 class CompanySerializer(serializers.ModelSerializer):
     class Meta:
         model = Company
-        fields = ['name', 'logo']
+        fields = ['id', 'name', 'logo']
         extra_kwargs = {
             'name': {'required': True},
         }
@@ -47,6 +47,11 @@ class InvitationSerializer(serializers.ModelSerializer):
     class Meta:
         model = Invitation
         fields = ['email', 'company']
+
+class InvitationListSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Invitation
+        fields = ['email', 'company', 'invited_by', 'created_at', 'accepted', 'accepted_at', 'rejected']
 
 class AcceptEmailInvitationSerializer(serializers.Serializer):
     token = serializers.CharField()

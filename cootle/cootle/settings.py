@@ -178,3 +178,9 @@ EMAIL_USE_TLS = env('EMAIL_USE_TLS')
 # EMAIL_USE_SSL = env('EMAIL_USE_SSL')
 EMAIL_HOST_USER = env('EMAIL_HOST_USER')
 EMAIL_HOST_PASSWORD = env('EMAIL_HOST_PASSWORD')
+
+SESSION_ENGINE = 'django.contrib.sessions.backends.db'
+SESSION_COOKIE_NAME = 'cootle_sessionid'
+SESSION_COOKIE_AGE = 1209600  # Two weeks, in seconds
+SESSION_SAVE_EVERY_REQUEST = False  # Whether to save the session data on every request
+SESSION_EXPIRE_AT_BROWSER_CLOSE = False  # Whether to expire the session when the browser is closed
