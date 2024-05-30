@@ -64,8 +64,12 @@ class AcceptEmailInvitationSerializer(serializers.Serializer):
 class AcceptInvitationSerializer(serializers.ModelSerializer):
     class Meta:
         model = Invitation
-        fields = ['email', 'company']
+        fields = ['company']
         extra_kwargs = {
-            'email': {'required': True},
             'company': {'required': True},
         }
+    
+    def validate(self, data):
+        # Add email from context (request user) to validated data
+        data['email'] = self.context['request'].user.email
+        return data

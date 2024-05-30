@@ -312,8 +312,8 @@ class AcceptInvitationView(generics.GenericAPIView):
     def post(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        email = serializer.validated_data['email']
         company = serializer.validated_data['company']
+        email = serializer.validated_data['email']
 
         try:
             invitation = Invitation.objects.get(email=email, company=company, accepted=False)
@@ -340,16 +340,18 @@ class RejectInvitationView(generics.GenericAPIView):
     def post(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        email = serializer.validated_data['email']
         company = serializer.validated_data['company']
+        email = serializer.validated_data['email']
 
         try:
             invitation = Invitation.objects.get(email=email, company=company, accepted=False)
         except Invitation.DoesNotExist:
             raise ValidationError('Invalid or expired invitation.')
 
-        invitation.rejected = True
-        invitation.save()
+        with transaction.atomic():
+            invitation.rejected = True
+            invitation.save()
+
         return Response({'status': 'Invitation rejected successfully'}, status=status.HTTP_200_OK)
 
 class InvitationListView(generics.ListAPIView):
