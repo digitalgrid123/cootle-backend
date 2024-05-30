@@ -242,11 +242,19 @@ class InviteUserView(generics.CreateAPIView):
     )
     def post(self, request, *args, **kwargs):
         user = request.user
-        try:
-            company = user.membership_set.get(is_admin=True).company
-        except Membership.DoesNotExist:
-            raise ValidationError('User is not associated with any company.')
+        current_company_id = request.session.get('current_company_id')
 
+        if not current_company_id:
+            return Response({'status': 'No company selected'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            # Check if the user is an admin of the current company
+            company = Company.objects.get(id=current_company_id)
+            membership = user.membership_set.get(company=company, is_admin=True)
+        except Company.DoesNotExist:
+            return Response({'status': 'Company does not exist'}, status=status.HTTP_404_NOT_FOUND)
+        except Membership.DoesNotExist:
+            return Response({'status': 'User is not an admin of the selected company'}, status=status.HTTP_403_FORBIDDEN)
 
         request.data['company'] = company.pk
         serializer = self.get_serializer(data=request.data)

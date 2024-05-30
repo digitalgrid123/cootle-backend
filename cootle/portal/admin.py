@@ -3,7 +3,7 @@ from django.contrib.auth.admin import UserAdmin
 from .models import User
 from django.db import transaction
 from django.core.exceptions import ValidationError
-from .models import Membership, Company
+from .models import Membership, Company, Invitation
 
 
 class CustomUserAdmin(UserAdmin):
@@ -12,6 +12,8 @@ class CustomUserAdmin(UserAdmin):
 
 admin.site.register(User, CustomUserAdmin)
 admin.site.register(Company)
+admin.site.register(Membership)
+admin.site.register(Invitation)
 
 def assign_company(user, company, is_admin=False):
     # Check if the user is already an admin in any company

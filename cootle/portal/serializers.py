@@ -44,9 +44,13 @@ class CompanySerializer(serializers.ModelSerializer):
         }
 
 class InvitationSerializer(serializers.ModelSerializer):
+    company_name = serializers.CharField(source='company.name', read_only=True)
+    invite_email = serializers.CharField(source='invited_by.email', read_only=True)
+
     class Meta:
         model = Invitation
-        fields = ['email', 'company']
+        fields = ['email', 'company', 'company_name', 'invited_by', 'invite_email', 'created_at']
+        read_only_fields = ['company_name', 'invite_email']
 
 class InvitationListSerializer(serializers.ModelSerializer):
     class Meta:
