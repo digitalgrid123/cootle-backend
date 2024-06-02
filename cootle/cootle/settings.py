@@ -190,3 +190,8 @@ SESSION_COOKIE_NAME = 'cootle_sessionid'
 SESSION_COOKIE_AGE = 1209600  # Two weeks, in seconds
 SESSION_SAVE_EVERY_REQUEST = False  # Whether to save the session data on every request
 SESSION_EXPIRE_AT_BROWSER_CLOSE = False  # Whether to expire the session when the browser is closed
+SESSION_COOKIE_SAMESITE = 'None'
+SESSION_COOKIE_SECURE = True
+
+CSRF_COOKIE_SAMESITE = 'None'
+CSRF_COOKIE_SECURE = True

@@ -256,10 +256,14 @@ class InviteUserView(generics.CreateAPIView):
         except Membership.DoesNotExist:
             return Response({'status': 'User is not an admin of the selected company'}, status=status.HTTP_403_FORBIDDEN)
 
-        request.data['company'] = company.pk
-        serializer = self.get_serializer(data=request.data)
+        # Prepare data for serializer
+        data = request.data.copy()
+        data['company'] = company.pk
+        data['invited_by'] = user.pk
+
+        serializer = self.get_serializer(data=data)
         serializer.is_valid(raise_exception=True)
-        invitation = serializer.save(invited_by=user)
+        invitation = serializer.save()
         invitation.token = get_random_string(length=32)
         invitation.save()
         send_invitation_email(invitation)

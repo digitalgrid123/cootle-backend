@@ -50,7 +50,7 @@ class InvitationSerializer(serializers.ModelSerializer):
     class Meta:
         model = Invitation
         fields = ['email', 'company', 'company_name', 'invited_by', 'invite_email', 'created_at']
-        read_only_fields = ['company_name', 'invite_email']
+        read_only_fields = ['company_name', 'invite_email', 'invited_by']
 
 class InvitationListSerializer(serializers.ModelSerializer):
     class Meta:
