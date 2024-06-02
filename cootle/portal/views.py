@@ -5,7 +5,7 @@ from django.utils.crypto import get_random_string
 from django.utils import timezone
 from django.db import transaction
 from django.http import HttpResponse
-from rest_framework import status, generics
+from rest_framework import status, generics, serializers
 from rest_framework.response import Response
 from rest_framework.exceptions import ValidationError
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -237,8 +237,8 @@ class InviteUserView(generics.CreateAPIView):
     permission_classes = [IsAuthenticated, IsAdminUser]
 
     @swagger_auto_schema(
-        operation_description="Invite a new user to a company",
-        responses={201: "Invitation sent successfully."}
+        operation_description="Invite new users to a company",
+        responses={201: "Invitations sent successfully."}
     )
     def post(self, request, *args, **kwargs):
         user = request.user
@@ -256,17 +256,35 @@ class InviteUserView(generics.CreateAPIView):
         except Membership.DoesNotExist:
             return Response({'status': 'User is not an admin of the selected company'}, status=status.HTTP_403_FORBIDDEN)
 
-        # Prepare data for serializer
-        request.data['company'] = company.pk
-        request.data['invited_by'] = user.pk
+        # Extract and validate emails from the request
+        emails = request.data.get('emails', '')
+        if not emails:
+            return Response({'status': 'Emails field is required'}, status=status.HTTP_400_BAD_REQUEST)
 
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        invitation = serializer.save()
-        invitation.token = get_random_string(length=32)
-        invitation.save()
-        send_invitation_email(invitation)
-        return Response({'status': 'Invitation sent successfully'}, status=status.HTTP_201_CREATED)
+        email_list = [email.strip() for email in emails.split(',')]
+        invalid_emails = [email for email in email_list if not serializers.EmailField().run_validation(email)]
+        
+        if invalid_emails:
+            return Response({'status': 'Invalid emails', 'invalid_emails': invalid_emails}, status=status.HTTP_400_BAD_REQUEST)
+
+        invitations = []
+        for email in email_list:
+            invitation_data = {
+                'email': email,
+                'company': company.pk,
+                'invited_by': user.pk
+            }
+
+            serializer = self.get_serializer(data=invitation_data)
+            serializer.is_valid(raise_exception=True)
+            invitation = serializer.save()
+            invitation.token = get_random_string(length=32)
+            invitation.save()
+            send_invitation_email(invitation)
+            invitations.append(invitation)
+
+        return Response({'status': 'Invitations sent successfully', 'invitations': [inv.email for inv in invitations]}, status=status.HTTP_201_CREATED)
+
     
 class AcceptEmailInvitationView(generics.GenericAPIView):
     serializer_class = AcceptEmailInvitationSerializer
