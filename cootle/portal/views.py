@@ -412,7 +412,8 @@ class CreateCompanyView(generics.CreateAPIView):
         company = serializer.save()
         assign_company(request.user, company, is_admin=True)
         request.session['current_company_id'] = company.id
-        return Response({'status': 'Company created successfully'}, status=status.HTTP_201_CREATED)
+        session_id = request.session.session_key
+        return Response({'status': 'Company created successfully', 'session_id': session_id}, status=status.HTTP_201_CREATED)
     
 class SetCurrentCompanyView(APIView):
     permission_classes = [IsAuthenticated]
@@ -436,7 +437,8 @@ class SetCurrentCompanyView(APIView):
             if request.user.membership_set.filter(company=company, is_admin=True).exists():
                 request.session['current_company_id'] = company_id
                 request.session.save()
-                return Response({'status': 'Current company set successfully'}, status=status.HTTP_200_OK)
+                session_id = request.session.session_key
+                return Response({'status': 'Current company set successfully', 'session_id':session_id}, status=status.HTTP_200_OK)
             else:
                 return Response({'status': 'User is not an admin of this company'}, status=status.HTTP_403_FORBIDDEN)
         except Company.DoesNotExist:
