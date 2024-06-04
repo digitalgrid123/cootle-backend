@@ -10,8 +10,18 @@ class User(AbstractUser):
     is_verified = models.BooleanField(default=False)
     is_admin = models.BooleanField(default=False)
     verification_code = models.CharField(max_length=6, blank=True, null=True)
-    fullname = models.TextField(max_length=30, default="User#"+str(id))
+    fullname = models.CharField(max_length=30, blank=True, null=True)  # Changed TextField to CharField
     profile_pic = models.ImageField(upload_to='images/profile-pics/', blank=True, null=True)
+
+    def save(self, *args, **kwargs):
+        if not self.fullname:
+            self.fullname = f"User#{self.id if self.id else 'unknown'}"
+        super(User, self).save(*args, **kwargs)
+
+        # Update fullname again after the first save to get the actual id
+        if self.fullname == f"User#unknown":
+            self.fullname = f"User#{self.id}"
+            super(User, self).save(update_fields=['fullname'])
 
     def generate_verification_code(self):
         self.verification_code = ''.join(random.choices(string.digits, k=6))
