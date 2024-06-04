@@ -310,8 +310,6 @@ class AcceptEmailInvitationView(generics.GenericAPIView):
         if created:
             user.is_verified = True
             user.save()
-        elif not user.is_verified:
-            raise ValidationError('User already exists but is not verified.')
 
         with transaction.atomic():
             invitation.accepted = True
