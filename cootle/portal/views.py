@@ -439,7 +439,8 @@ class CreateCompanyView(generics.CreateAPIView):
         assign_company(request.user, company, is_admin=True)
         request.session['current_company_id'] = company.id
         session_id = request.session.session_key
-        return Response({'status': 'Company created successfully', 'session_id': session_id}, status=status.HTTP_201_CREATED)
+        is_admin = True
+        return Response({'status': 'Company created successfully', 'session_id': session_id, 'is_admin': is_admin}, status=status.HTTP_201_CREATED)
     
 class SetCurrentCompanyView(APIView):
     permission_classes = [IsAuthenticated]
@@ -460,19 +461,21 @@ class SetCurrentCompanyView(APIView):
 
         try:
             company = Company.objects.get(id=company_id)
-            if request.user.membership_set.filter(company=company, is_admin=True).exists():
+            if request.user.membership_set.filter(company=company).exists():
                 request.session['current_company_id'] = company_id
                 request.session.save()
                 session_id = request.session.session_key
-                return Response({'status': 'Current company set successfully', 'session_id':session_id}, status=status.HTTP_200_OK)
+                membership = request.user.membership_set.get(company=company)
+                is_admin = membership.is_admin
+                return Response({'status': 'Current company set successfully', 'session_id':session_id, 'is_admin':is_admin}, status=status.HTTP_200_OK)
             else:
-                return Response({'status': 'User is not an admin of this company'}, status=status.HTTP_403_FORBIDDEN)
+                return Response({'status': 'User is not a member of this company'}, status=status.HTTP_403_FORBIDDEN)
         except Company.DoesNotExist:
             return Response({'status': 'Company does not exist'}, status=status.HTTP_404_NOT_FOUND)
 
 class EditCompanyView(generics.UpdateAPIView):
     serializer_class = CompanySerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAdminUser]
 
     @swagger_auto_schema(
         operation_description="Edit a company",
