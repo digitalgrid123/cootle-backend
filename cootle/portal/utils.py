@@ -17,8 +17,9 @@ def send_login_email(email, code):
 
 def send_invitation_email(invitation):
     subject = 'You are invited to join a company'
+    frontend_url = 'http://localhost:3000/signup'
     message = f'Please use the following link to accept the invitation: ' \
-              f'http://yourdomain.com/accept-invitation/?token={invitation.token}'
+              f'{frontend_url}?token={invitation.token}'
     from_email = settings.EMAIL_HOST_USER
     recipient_list = [invitation.email]
 

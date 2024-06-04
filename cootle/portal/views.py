@@ -306,7 +306,15 @@ class AcceptEmailInvitationView(generics.GenericAPIView):
 
         email = invitation.email  # Fetch email from the invitation object
 
-        user, created = User.objects.get_or_create(email=email)
+        # Create a unique username
+        base_username = email.split('@')[0]
+        username = base_username
+        counter = 1
+        while User.objects.filter(username=username).exists():
+            username = f"{base_username}{counter}"
+            counter += 1
+
+        user, created = User.objects.get_or_create(email=email, defaults={'username': username})
         if created:
             user.is_verified = True
             user.save()
@@ -317,8 +325,11 @@ class AcceptEmailInvitationView(generics.GenericAPIView):
             invitation.save()
             assign_company(user, invitation.company, is_admin=False)
 
-        return Response({'status': 'Invitation accepted successfully'}, status=status.HTTP_200_OK)
+        # Generate a passcode or verification code
+        code = user.generate_verification_code()
+        send_verification_email(email, code)  # Send the passcode via email
 
+        return Response({'status': 'Invitation accepted successfully'}, status=status.HTTP_200_OK)
 
 class AcceptInvitationView(generics.GenericAPIView):
     serializer_class = AcceptInvitationSerializer
