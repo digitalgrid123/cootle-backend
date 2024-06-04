@@ -4,6 +4,7 @@ from django.core.mail import send_mail
 from django.utils.crypto import get_random_string
 from django.utils import timezone
 from django.db import transaction
+from django.db.models import Q
 from django.http import HttpResponse
 from rest_framework import status, generics, serializers
 from rest_framework.response import Response
@@ -394,7 +395,11 @@ class InvitationListView(generics.ListAPIView):
     )
     def get(self, request, *args, **kwargs):
         user = request.user
-        invitations = Invitation.objects.filter(email=user.email)
+        invitations = Invitation.objects.filter(
+            email=user.email
+        ).exclude(
+            Q(accepted=True) | Q(rejected=True)
+        )
         serializer = self.get_serializer(invitations, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
