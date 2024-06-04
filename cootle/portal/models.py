@@ -60,3 +60,6 @@ class Invitation(models.Model):
 
     def __str__(self):
         return f"{self.email} - {self.company.name}"
+    
+    def get_company_logo(self):
+        return self.company.logo

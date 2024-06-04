@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Invitation</title>
+</head>
+<body>
+    <h1>Invitation to join {{ company_name }}</h1>
+    <p>Click the link below to accept the invitation:</p>
+    <p><a href="{{ frontend_url }}?token={{ token }}">Accept Invitation</a></p>
+    <p>We look forward to having you with us!</p>
+    {% if company_logo_url %}
+        <img src="cid:company_logo" alt="{{ company_name }} Logo" style="width:200px; height:auto;">
+    {% endif %}
+</body>
+</html>
