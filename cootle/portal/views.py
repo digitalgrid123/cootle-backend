@@ -17,7 +17,7 @@ from .models import User, Company, Invitation, Membership
 from .serializers import UserSerializer, UserAccessSerializer, UserVerificationSerializer, UserUpdateSerializer, CompanySerializer, InvitationSerializer, InvitationListSerializer, AcceptEmailInvitationSerializer, AcceptInvitationSerializer
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
-from .utils import send_verification_email, send_login_email, send_invitation_email
+from .utils import send_verification_email, send_login_email, send_invitation_email, send_invitation_message
 from .admin import assign_company
 
 # Create your views here.
@@ -281,7 +281,10 @@ class InviteUserView(generics.CreateAPIView):
             invitation = serializer.save()
             invitation.token = get_random_string(length=32)
             invitation.save()
-            send_invitation_email(invitation)
+            if User.objects.filter(email=email).exists():
+                send_invitation_message(invitation)
+            else:
+                send_invitation_email(invitation)
             invitations.append(invitation)
 
         return Response({'status': 'Invitations sent successfully', 'invitations': [inv.email for inv in invitations]}, status=status.HTTP_201_CREATED)
