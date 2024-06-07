@@ -270,6 +270,10 @@ class InviteUserView(generics.CreateAPIView):
 
         invitations = []
         for email in email_list:
+            if Membership.objects.filter(company=company, user__email=email).exists():
+                return Response({'status': f'{email} is already a member of the company'}, status=status.HTTP_400_BAD_REQUEST)
+            if Invitation.objects.filter(company=company, email=email).exists():
+                return Response({'status': f'{email} has already been invited to the company'}, status=status.HTTP_400_BAD_REQUEST)
             invitation_data = {
                 'email': email,
                 'company': company.pk,
