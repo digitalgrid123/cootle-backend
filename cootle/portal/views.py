@@ -522,31 +522,6 @@ class EditCompanyView(generics.UpdateAPIView):
         serializer.save()
         return Response({'status': 'Company updated successfully'}, status=status.HTTP_200_OK)
     
-class RemoveCompanyView(generics.DestroyAPIView):
-    permission_classes = [IsAuthenticated, IsAdminUser]
-
-    @swagger_auto_schema(
-        operation_description="Remove a company",
-        responses={200: "Company removed successfully."}
-    )
-    def delete(self, request, *args, **kwargs):
-        user = request.user
-        current_company_id = request.session.get('current_company_id')
-
-        if not current_company_id:
-            return Response({'status': 'No company selected'}, status=status.HTTP_400_BAD_REQUEST)
-
-        try:
-            company = Company.objects.get(id=current_company_id)
-            membership = user.membership_set.get(company=company, is_admin=True)
-        except Company.DoesNotExist:
-            return Response({'status': 'Company does not exist'}, status=status.HTTP_404_NOT_FOUND)
-        except Membership.DoesNotExist:
-            return Response({'status': 'User is not an admin of the selected company'}, status=status.HTTP_403_FORBIDDEN)
-
-        company.delete()
-        return Response({'status': 'Company removed successfully'}, status=status.HTTP_200_OK)
-
     
 class CompanyListView(generics.ListAPIView):
     serializer_class = CompanySerializer
