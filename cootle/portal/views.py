@@ -1,4 +1,4 @@
-from django.shortcuts import render
+from django.shortcuts import render, get_object_or_404
 from django.contrib.auth import get_user_model
 from django.core.mail import send_mail
 from django.utils.crypto import get_random_string
@@ -566,3 +566,35 @@ class CompanyMembersView(generics.ListAPIView):
             return Response({'status': 'Company does not exist'}, status=status.HTTP_404_NOT_FOUND)
         
 
+class RemoveMemberView(generics.DestroyAPIView):
+    permission_classes = [IsAuthenticated, IsAdminUser]
+
+    @swagger_auto_schema(
+        operation_description="Remove a member from the current company",
+        responses={200: "Member removed successfully."}
+    )
+    def delete(self, request, *args, **kwargs):
+
+        user = request.user
+        current_company_id = request.session.get('current_company_id')
+
+        if not current_company_id:
+            return Response({'status': 'No company selected'}, status=status.HTTP_400_BAD_REQUEST)
+
+        member_id = request.data.get('member_id')
+        if not member_id:
+            return Response({'status': 'Member ID is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            company = Company.objects.get(id=current_company_id)
+            if not Membership.objects.filter(company=company, user=user, is_admin=True).exists():
+                return Response({'status': 'User is not an admin of the selected company'}, status=status.HTTP_403_FORBIDDEN)
+        except Company.DoesNotExist:
+            return Response({'status': 'Company does not exist'}, status=status.HTTP_404_NOT_FOUND)
+
+        try:
+            member_to_remove = Membership.objects.get(user__id=member_id, company=company)
+            member_to_remove.delete()
+            return Response({'status': 'Member removed successfully'}, status=status.HTTP_200_OK)
+        except Membership.DoesNotExist:
+            return Response({'status': 'Member not found in the company'}, status=status.HTTP_404_NOT_FOUND)
