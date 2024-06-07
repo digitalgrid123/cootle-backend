@@ -3,7 +3,7 @@ from django.urls import path, re_path
 from rest_framework import permissions
 from drf_yasg.views import get_schema_view
 from drf_yasg import openapi
-from portal.views import DashboardInfoView, UserRegistrationView, UserVerificationView, UserLoginView, UserLoginVerificationView, UserUpdateView, UserInfoView, CreateCompanyView, SetCurrentCompanyView, EditCompanyView, CompanyListView, InviteUserView, AcceptEmailInvitationView, AcceptInvitationView, RejectInvitationView, InvitationListView, ListInvitationsView, CompanyMembersView
+from portal.views import DashboardInfoView, UserRegistrationView, UserVerificationView, UserLoginView, UserLoginVerificationView, UserUpdateView, UserInfoView, CreateCompanyView, SetCurrentCompanyView, EditCompanyView, RemoveCompanyView, CompanyListView, InviteUserView, AcceptEmailInvitationView, AcceptInvitationView, RejectInvitationView, InvitationListView, ListInvitationsView, CompanyMembersView
 from rest_framework_simplejwt.views import (
       TokenObtainPairView,
       TokenRefreshView,
@@ -35,6 +35,7 @@ urlpatterns = [
    path('api/company/set/', SetCurrentCompanyView.as_view(), name='set-current-company'),
    path('api/company/edit/', EditCompanyView.as_view(), name='edit-company'),
    path('api/company/list/', CompanyListView.as_view(), name='company-list'),
+   path('api/company/remove/', RemoveCompanyView.as_view(), name='remove-company'),
    path('api/invite/', InviteUserView.as_view(), name='invite-user'),
    path('api/accept/', AcceptEmailInvitationView.as_view(), name='accept-email-invitation'),
    path('api/invite/accept/', AcceptInvitationView.as_view(), name='accept-invitation'),
