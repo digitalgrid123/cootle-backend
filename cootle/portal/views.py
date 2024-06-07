@@ -416,7 +416,7 @@ class ListInvitationsView(generics.ListAPIView):
 
     @swagger_auto_schema(
         operation_description="List invitations sent by the logged-in user from the current company",
-        responses={200: InvitationSerializer(many=True)}
+        responses={200: InvitationListSerializer(many=True)}
     )
     def get(self, request, *args, **kwargs):
         user = request.user
@@ -431,7 +431,7 @@ class ListInvitationsView(generics.ListAPIView):
                 invitations = Invitation.objects.filter(company=company, invited_by=user)
                 serializer = self.get_serializer(invitations, many=True)
                 response_data = {
-                    'user':{
+                    'user': {
                         'fullname': user.fullname,
                         'email': user.email,
                         'profile_pic': user.profile_pic.url if user.profile_pic else None
@@ -443,6 +443,7 @@ class ListInvitationsView(generics.ListAPIView):
                 return Response({'status': 'User is not an admin of this company'}, status=status.HTTP_403_FORBIDDEN)
         except Company.DoesNotExist:
             return Response({'status': 'Company does not exist'}, status=status.HTTP_404_NOT_FOUND)
+
 
 class CreateCompanyView(generics.CreateAPIView):
     serializer_class = CompanySerializer
@@ -563,3 +564,5 @@ class CompanyMembersView(generics.ListAPIView):
             return Response(serializer.data, status=status.HTTP_200_OK)
         except Company.DoesNotExist:
             return Response({'status': 'Company does not exist'}, status=status.HTTP_404_NOT_FOUND)
+        
+

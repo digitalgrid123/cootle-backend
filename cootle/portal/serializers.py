@@ -53,9 +53,24 @@ class InvitationSerializer(serializers.ModelSerializer):
         read_only_fields = ['company_name', 'invite_email']
 
 class InvitationListSerializer(serializers.ModelSerializer):
+    company_name = serializers.CharField(source='company.name', read_only=True)
+    invited_by_email = serializers.CharField(source='invited_by.email', read_only=True)
+    invited_user_fullname = serializers.SerializerMethodField()
+    invited_user_profile_pic = serializers.SerializerMethodField()
+
     class Meta:
         model = Invitation
-        fields = ['email', 'company', 'invited_by', 'created_at', 'accepted', 'accepted_at', 'rejected']
+        fields = ['email', 'company', 'company_name', 'invited_by', 'invited_by_email', 'created_at', 'accepted', 'accepted_at', 'rejected', 'invited_user_fullname', 'invited_user_profile_pic']
+        read_only_fields = ['company_name', 'invited_by_email', 'invited_user_fullname', 'invited_user_profile_pic']
+
+    def get_invited_user_fullname(self, obj):
+        user = User.objects.filter(email=obj.email).first()
+        return user.fullname if user else None
+
+    def get_invited_user_profile_pic(self, obj):
+        user = User.objects.filter(email=obj.email).first()
+        return user.profile_pic.url if user and user.profile_pic else None
+
 
 class AcceptEmailInvitationSerializer(serializers.Serializer):
     token = serializers.CharField()
