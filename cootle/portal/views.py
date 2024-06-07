@@ -426,7 +426,15 @@ class ListInvitationsView(generics.ListAPIView):
             if user.membership_set.filter(company=company, is_admin=True).exists():
                 invitations = Invitation.objects.filter(company=company, invited_by=user)
                 serializer = self.get_serializer(invitations, many=True)
-                return Response(serializer.data, status=status.HTTP_200_OK)
+                response_data = {
+                    'user':{
+                        'fullname': user.fullname,
+                        'email': user.email,
+                        'profile_pic': user.profile_pic.url if user.profile_pic else None
+                    },
+                    'invitations': serializer.data
+                }
+                return Response(response_data, status=status.HTTP_200_OK)
             else:
                 return Response({'status': 'User is not an admin of this company'}, status=status.HTTP_403_FORBIDDEN)
         except Company.DoesNotExist:
