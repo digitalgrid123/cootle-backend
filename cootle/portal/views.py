@@ -538,32 +538,32 @@ class CompanyListView(generics.ListAPIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
     
 
-class CompanyMembersView(generics.ListAPIView):
-    serializer_class = UserSerializer
-    permission_classes = [IsAuthenticated]
+# class CompanyMembersView(generics.ListAPIView):
+#     serializer_class = UserSerializer
+#     permission_classes = [IsAuthenticated]
 
-    @swagger_auto_schema(
-        operation_description="List all members of the current company",
-        responses={200: "List of members."}
-    )
-    def get(self, request, *args, **kwargs):
-        current_company_id = request.session.get('current_company_id')
+#     @swagger_auto_schema(
+#         operation_description="List all members of the current company",
+#         responses={200: "List of members."}
+#     )
+#     def get(self, request, *args, **kwargs):
+#         current_company_id = request.session.get('current_company_id')
 
-        if not current_company_id:
-            return Response({'status': 'No company selected'}, status=status.HTTP_400_BAD_REQUEST)
+#         if not current_company_id:
+#             return Response({'status': 'No company selected'}, status=status.HTTP_400_BAD_REQUEST)
 
-        try:
-            company = Company.objects.get(id=current_company_id)
-            # Ensure the user is an admin of the company
-            if not company.membership_set.filter(user=request.user, is_admin=True).exists():
-                return Response({'status': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+#         try:
+#             company = Company.objects.get(id=current_company_id)
+#             # Ensure the user is an admin of the company
+#             if not company.membership_set.filter(user=request.user, is_admin=True).exists():
+#                 return Response({'status': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
 
-            members = company.membership_set.filter(is_admin=False)
-            users = [membership.user for membership in members]  # Extract User instances
-            serializer = self.get_serializer(users, many=True)  # Serialize User instances
-            return Response(serializer.data, status=status.HTTP_200_OK)
-        except Company.DoesNotExist:
-            return Response({'status': 'Company does not exist'}, status=status.HTTP_404_NOT_FOUND)
+#             members = company.membership_set.filter(is_admin=False)
+#             users = [membership.user for membership in members]  # Extract User instances
+#             serializer = self.get_serializer(users, many=True)  # Serialize User instances
+#             return Response(serializer.data, status=status.HTTP_200_OK)
+#         except Company.DoesNotExist:
+#             return Response({'status': 'Company does not exist'}, status=status.HTTP_404_NOT_FOUND)
         
 
 class RemoveMemberView(generics.DestroyAPIView):

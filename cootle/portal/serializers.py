@@ -57,11 +57,12 @@ class InvitationListSerializer(serializers.ModelSerializer):
     invited_by_email = serializers.CharField(source='invited_by.email', read_only=True)
     invited_user_fullname = serializers.SerializerMethodField()
     invited_user_profile_pic = serializers.SerializerMethodField()
+    invited_user_id = serializers.SerializerMethodField()
 
     class Meta:
         model = Invitation
-        fields = ['email', 'company', 'company_name', 'invited_by', 'invited_by_email', 'created_at', 'accepted', 'accepted_at', 'rejected', 'invited_user_fullname', 'invited_user_profile_pic']
-        read_only_fields = ['company_name', 'invited_by_email', 'invited_user_fullname', 'invited_user_profile_pic']
+        fields = ['email', 'company', 'company_name', 'invited_by', 'invited_by_email', 'created_at', 'accepted', 'accepted_at', 'rejected', 'invited_user_id', 'invited_user_fullname', 'invited_user_profile_pic']
+        read_only_fields = ['company_name', 'invited_by_email', 'invited_user_id', 'invited_user_fullname', 'invited_user_profile_pic']
 
     def get_invited_user_fullname(self, obj):
         user = User.objects.filter(email=obj.email).first()
@@ -70,6 +71,10 @@ class InvitationListSerializer(serializers.ModelSerializer):
     def get_invited_user_profile_pic(self, obj):
         user = User.objects.filter(email=obj.email).first()
         return user.profile_pic.url if user and user.profile_pic else None
+    
+    def get_invited_user_id(self, obj):
+        user = User.objects.filter(email=obj.email).first()
+        return user.id if user else None
 
 
 class AcceptEmailInvitationSerializer(serializers.Serializer):
