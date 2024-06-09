@@ -6,6 +6,7 @@ from django.utils import timezone
 from django.db import transaction
 from django.db.models import Q
 from django.http import HttpResponse
+from django.conf import settings
 from rest_framework import status, generics, serializers
 from rest_framework.response import Response
 from rest_framework.exceptions import ValidationError
@@ -13,8 +14,8 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.views import APIView
 from .permissions import IsAdminUser
-from .models import User, Company, Invitation, Membership
-from .serializers import UserSerializer, UserAccessSerializer, UserVerificationSerializer, UserUpdateSerializer, CompanySerializer, InvitationSerializer, InvitationListSerializer, AcceptEmailInvitationSerializer, AcceptInvitationSerializer
+from .models import User, Company, Invitation, Membership, Notification
+from .serializers import UserSerializer, UserAccessSerializer, UserVerificationSerializer, UserUpdateSerializer, CompanySerializer, InvitationSerializer, InvitationListSerializer, AcceptEmailInvitationSerializer, AcceptInvitationSerializer, NotificationSerializer
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 from .utils import send_verification_email, send_login_email, send_invitation_email, send_invitation_message
@@ -287,6 +288,17 @@ class InviteUserView(generics.CreateAPIView):
             invitation.save()
             if User.objects.filter(email=email).exists():
                 send_invitation_message(invitation)
+                user_instance = User.objects.get(email=email)
+                notification_data = {
+                    'user': user_instance.id,
+                    'message': f"You have been invited to join {company.name}",
+                    'created_at': timezone.now()
+                }
+                notification_serializer = NotificationSerializer(data=notification_data)
+                if notification_serializer.is_valid():
+                    notification_serializer.save()
+                else:
+                    return Response(notification_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
             else:
                 send_invitation_email(invitation)
             invitations.append(invitation)
@@ -359,11 +371,28 @@ class AcceptInvitationView(generics.GenericAPIView):
             raise ValidationError('Invalid or expired invitation.')
 
         user = request.user
+
+        # Check if the user is already a member of the company
+        if Membership.objects.filter(user=user, company=company).exists():
+            return Response({'status': 'User is already a member of the company'}, status=status.HTTP_400_BAD_REQUEST)
+        
         with transaction.atomic():
             invitation.accepted = True
             invitation.accepted_at = timezone.now()
             invitation.save()
             assign_company(user, company, is_admin=False)
+            membership = Membership.objects.get(company=company, is_admin=True)
+            notification_data = {
+                'user': membership.user.id,
+                'message': f"{user.fullname} has accepted the invitation to join {company.name}",
+                'created_at': timezone.now()
+            }
+            notification_serializer = NotificationSerializer(data=notification_data)
+            if notification_serializer.is_valid():
+                notification_serializer.save()
+            else:
+                return Response(notification_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
         return Response({'status': 'Invitation accepted successfully'}, status=status.HTTP_200_OK)
 
@@ -386,9 +415,26 @@ class RejectInvitationView(generics.GenericAPIView):
         except Invitation.DoesNotExist:
             raise ValidationError('Invalid or expired invitation.')
 
+        user = request.user
+        # Check if the user is already a member of the company
+        if Membership.objects.filter(user=user, company=company).exists():
+            return Response({'status': 'User is already a member of the company'}, status=status.HTTP_400_BAD_REQUEST)
+        
         with transaction.atomic():
             invitation.rejected = True
             invitation.save()
+            membership = Membership.objects.get(company=company, is_admin=True)
+            notification_data = {
+                'user': membership.user.id,
+                'message': f"{user.fullname} has rejected the invitation to join {company.name}",
+                'created_at': timezone.now()
+            }
+            notification_serializer = NotificationSerializer(data=notification_data)
+            if notification_serializer.is_valid():
+                notification_serializer.save()
+            else:
+                return Response(notification_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
         return Response({'status': 'Invitation rejected successfully'}, status=status.HTTP_200_OK)
 
@@ -434,7 +480,7 @@ class ListInvitationsView(generics.ListAPIView):
                     'user': {
                         'fullname': user.fullname,
                         'email': user.email,
-                        'profile_pic': user.profile_pic.url if user.profile_pic else None
+                        'profile_pic': f"{settings.BASE_URL}{user.profile_pic.url}" if user.profile_pic else None
                     },
                     'invitations': serializer.data
                 }
@@ -598,3 +644,30 @@ class RemoveMemberView(generics.DestroyAPIView):
             return Response({'status': 'Member removed successfully'}, status=status.HTTP_200_OK)
         except Membership.DoesNotExist:
             return Response({'status': 'Member not found in the company'}, status=status.HTTP_404_NOT_FOUND)
+        
+class NotificationListView(generics.ListAPIView):
+    serializer_class = NotificationSerializer
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(
+        operation_description="List all notifications for a user",
+        responses={200: "List of notifications."}
+    )
+    def get(self, request, *args, **kwargs):
+        user = request.user
+        notifications = Notification.objects.filter(user=user)
+        serializer = self.get_serializer(notifications, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    
+class MarkReadNotifications(generics.GenericAPIView):
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(
+        operation_description="Mark all notifications as read",
+        responses={200: "Notifications marked as read successfully."}
+    )
+    def post(self, request, *args, **kwargs):
+        user = request.user
+        notifications = Notification.objects.filter(user=user)
+        notifications.update(is_read=True)
+        return Response({'status': 'Notifications marked as read successfully'}, status=status.HTTP_200_OK)

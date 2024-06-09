@@ -1,5 +1,6 @@
 from rest_framework import serializers
-from .models import User, Company, Invitation
+from .models import User, Company, Invitation, Notification
+from django.conf import settings
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
@@ -70,7 +71,7 @@ class InvitationListSerializer(serializers.ModelSerializer):
 
     def get_invited_user_profile_pic(self, obj):
         user = User.objects.filter(email=obj.email).first()
-        return user.profile_pic.url if user and user.profile_pic else None
+        return f"{settings.BASE_URL}{user.profile_pic.url}" if user and user.profile_pic else None
     
     def get_invited_user_id(self, obj):
         user = User.objects.filter(email=obj.email).first()
@@ -93,3 +94,14 @@ class AcceptInvitationSerializer(serializers.ModelSerializer):
         # Add email from context (request user) to validated data
         data['email'] = self.context['request'].user.email
         return data
+    
+
+class NotificationSerializer(serializers.ModelSerializer):
+    user = serializers.PrimaryKeyRelatedField(queryset=User.objects.all())
+
+    class Meta:
+        model = Notification
+        fields = ['user', 'message', 'created_at', 'is_read']
+
+    def create(self, validated_data):
+        return Notification.objects.create(**validated_data)
