@@ -13,6 +13,8 @@ from rest_framework.exceptions import ValidationError
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.views import APIView
+from channels.layers import get_channel_layer
+from asgiref.sync import async_to_sync
 from .permissions import IsAdminUser
 from .models import User, Company, Invitation, Membership, Notification
 from .serializers import UserSerializer, UserAccessSerializer, UserVerificationSerializer, UserUpdateSerializer, CompanySerializer, InvitationSerializer, InvitationListSerializer, AcceptEmailInvitationSerializer, AcceptInvitationSerializer, NotificationSerializer
@@ -393,6 +395,15 @@ class AcceptInvitationView(generics.GenericAPIView):
             else:
                 return Response(notification_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+        # Send WebSocket notification for invitation accepted
+            channel_layer = get_channel_layer()
+            async_to_sync(channel_layer.group_send)(
+                'invitations', {
+                    'type': 'invitation_message',
+                    'message': f'{request.user.fullname} has accepted the invitation to join {company.name}',
+                    'event_type': 'invitation_accepted'
+                }
+            )
 
         return Response({'status': 'Invitation accepted successfully'}, status=status.HTTP_200_OK)
 
@@ -434,6 +445,15 @@ class RejectInvitationView(generics.GenericAPIView):
                 notification_serializer.save()
             else:
                 return Response(notification_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            # Send WebSocket notification for invitation accepted
+            channel_layer = get_channel_layer()
+            async_to_sync(channel_layer.group_send)(
+                'invitations', {
+                    'type': 'invitation_message',
+                    'message': f'{request.user.fullname} has rejected the invitation to join {company.name}',
+                    'event_type': 'invitation_rejected'
+                }
+            )
 
 
         return Response({'status': 'Invitation rejected successfully'}, status=status.HTTP_200_OK)
