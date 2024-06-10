@@ -3,7 +3,7 @@ from django.urls import path, re_path
 from rest_framework import permissions
 from drf_yasg.views import get_schema_view
 from drf_yasg import openapi
-from portal.views import DashboardInfoView, UserRegistrationView, UserVerificationView, UserLoginView, UserLoginVerificationView, UserUpdateView, UserInfoView, CreateCompanyView, SetCurrentCompanyView, EditCompanyView, CompanyListView, InviteUserView, AcceptEmailInvitationView, AcceptInvitationView, RejectInvitationView, InvitationListView, ListInvitationsView, RemoveMemberView, NotificationListView, MarkReadNotifications
+from portal.views import DashboardInfoView, UserRegistrationView, UserVerificationView, UserLoginView, UserLoginVerificationView, UserUpdateView, UserInfoView, CreateCompanyView, SetCurrentCompanyView, EditCompanyView, CompanyListView, InviteUserView, AcceptEmailInvitationView, AcceptInvitationView, RejectInvitationView, InvitationListView, ListInvitationsView, RemoveMemberView, NotificationListView, MarkReadNotifications, RemoveNotificationView, RemoveAllNotificationsView
 from rest_framework_simplejwt.views import (
       TokenObtainPairView,
       TokenRefreshView,
@@ -45,6 +45,8 @@ urlpatterns = [
    path('api/members/remove/', RemoveMemberView.as_view(), name='remove-member'),
    path('api/notifications/', NotificationListView.as_view(), name='notifications-list'),
    path('api/notifications/mark-read/', MarkReadNotifications.as_view(), name='mark-read-notifications'),
+   path('api/notifications/remove/', RemoveNotificationView.as_view(), name='remove-notification'),
+   path('api/notifications/remove-all/', RemoveAllNotificationsView.as_view(), name='remove-all-notifications'),
        # ... your other urls
    path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
    path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),

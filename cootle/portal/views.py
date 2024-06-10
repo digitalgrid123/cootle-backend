@@ -671,3 +671,36 @@ class MarkReadNotifications(generics.GenericAPIView):
         notifications = Notification.objects.filter(user=user)
         notifications.update(is_read=True)
         return Response({'status': 'Notifications marked as read successfully'}, status=status.HTTP_200_OK)
+    
+class RemoveNotificationView(generics.DestroyAPIView):
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(
+        operation_description="Remove a notification",
+        responses={200: "Notification removed successfully."}
+    )
+    def delete(self, request, *args, **kwargs):
+        user = request.user
+        notification_id = request.data.get('notification_id')
+        if not notification_id:
+            return Response({'status': 'Notification ID is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            notification = Notification.objects.get(id=notification_id, user=user)
+            notification.delete()
+            return Response({'status': 'Notification removed successfully'}, status=status.HTTP_200_OK)
+        except Notification.DoesNotExist:
+            return Response({'status': 'Notification not found'}, status=status.HTTP_404_NOT_FOUND)
+        
+class RemoveAllNotificationsView(generics.DestroyAPIView):
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(
+        operation_description="Remove all notifications",
+        responses={200: "All notifications removed successfully."}
+    )
+    def delete(self, request, *args, **kwargs):
+        user = request.user
+        notifications = Notification.objects.filter(user=user)
+        notifications.delete()
+        return Response({'status': 'All notifications removed successfully'}, status=status.HTTP_200_OK)
