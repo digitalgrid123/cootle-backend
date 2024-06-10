@@ -661,7 +661,21 @@ class RemoveMemberView(generics.DestroyAPIView):
         try:
             member_to_remove = Membership.objects.get(user__id=member_id, company=company)
             member_to_remove.delete()
-            return Response({'status': 'Member removed successfully'}, status=status.HTTP_200_OK)
+
+            # Also delete any invitations for this member and company
+            invitations_to_remove = Invitation.objects.filter(email=member_to_remove.user.email, company=company)
+            invitations_to_remove.delete()
+
+            # channel_layer = get_channel_layer()
+            # async_to_sync(channel_layer.group_send)(
+            #     'members', {
+            #         'type': 'member_message',
+            #         'message': f'{member_to_remove.user.fullname} has been removed from {company.name}',
+            #         'event_type': 'member_removed'
+            #     }
+            # )
+
+            return Response({'status': 'Member and their invitations removed successfully'}, status=status.HTTP_200_OK)
         except Membership.DoesNotExist:
             return Response({'status': 'Member not found in the company'}, status=status.HTTP_404_NOT_FOUND)
         
