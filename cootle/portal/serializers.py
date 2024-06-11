@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import User, Company, Invitation, Notification
+from .models import User, Company, Invitation, Notification, Category, DesignEffort, Objective, Value, ProductOutcome
 from django.conf import settings
 
 class UserSerializer(serializers.ModelSerializer):
@@ -105,3 +105,103 @@ class NotificationSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         return Notification.objects.create(**validated_data)
+    
+class CategorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Category
+        fields = ['id', 'name', 'created_at', 'updated_at']
+        extra_kwargs = {
+            'name': {'required': True},
+        }
+
+class DesignEffortSerializer(serializers.ModelSerializer):
+    category = serializers.SlugRelatedField(
+        queryset=Category.objects.all(),
+        slug_field='name'
+    )
+
+    class Meta:
+        model = DesignEffort
+        fields = ['id', 'title', 'description', 'created_at', 'updated_at', 'category']
+        extra_kwargs = {
+            'title': {'required': True},
+            'description': {'required': True},
+            'category': {'required': True}
+        }
+
+    def create(self, validated_data):
+        if not validated_data.get('title') or not validated_data.get('description') or not validated_data.get('category'):
+            raise serializers.ValidationError("All fields are required for creating a DesignEffort.")
+        return super().create(validated_data)
+
+    def update(self, instance, validated_data):
+        instance.title = validated_data.get('title', instance.title)
+        instance.description = validated_data.get('description', instance.description)
+        instance.category = validated_data.get('category', instance.category)
+        instance.save()
+        return instance
+
+
+class ObjectiveSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Objective
+        fields = ['id', 'title', 'description', 'created_at', 'updated_at',  'design_efforts']
+        extra_kwargs = {
+            'title': {'required': True},
+            'description': {'required': True},
+        }
+
+    def update(self, instance, validated_data):
+        instance.title = validated_data.get('title', instance.title)
+        instance.description = validated_data.get('description', instance.description)
+        instance.design_efforts.set(validated_data.get('design_efforts', instance.design_efforts.all()))
+        instance.save()
+        return instance
+
+class ValueSerializer(serializers.ModelSerializer):
+    design_efforts = serializers.PrimaryKeyRelatedField(
+        queryset=DesignEffort.objects.all(),
+        many=True,
+        required=False
+    )
+
+    class Meta:
+        model = Value
+        fields = ['id', 'title', 'description', 'created_at', 'updated_at', 'design_efforts']
+        extra_kwargs = {
+            'title': {'required': True},
+            'description': {'required': True},
+        }
+
+    def create(self, validated_data):
+        design_efforts = validated_data.pop('design_efforts', [])
+        value = Value.objects.create(**validated_data)
+        value.design_efforts.set(design_efforts)
+        return value
+
+    def update(self, instance, validated_data):
+        instance.title = validated_data.get('title', instance.title)
+        instance.description = validated_data.get('description', instance.description)
+        
+        if 'design_efforts' in validated_data:
+            design_efforts = validated_data.pop('design_efforts')
+            instance.design_efforts.set(design_efforts)
+
+        instance.save()
+        return instance
+
+
+class ProductOutcomeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ProductOutcome
+        fields = ['id', 'title', 'description', 'created_at', 'updated_at']
+        extra_kwargs = {
+            'title': {'required': True},
+            'description': {'required': True},
+        }
+
+    def update(self, instance, validated_data):
+        instance.title = validated_data.get('title', instance.title)
+        instance.description = validated_data.get('description', instance.description)
+        instance.save()
+        return instance

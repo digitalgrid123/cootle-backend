@@ -3,7 +3,7 @@ from django.urls import path, re_path
 from rest_framework import permissions
 from drf_yasg.views import get_schema_view
 from drf_yasg import openapi
-from portal.views import DashboardInfoView, UserRegistrationView, UserVerificationView, UserLoginView, UserLoginVerificationView, UserUpdateView, UserInfoView, CreateCompanyView, SetCurrentCompanyView, EditCompanyView, CompanyListView, InviteUserView, AcceptEmailInvitationView, AcceptInvitationView, RejectInvitationView, InvitationListView, ListInvitationsView, RemoveMemberView, NotificationListView, MarkReadNotifications, RemoveNotificationView, RemoveAllNotificationsView
+from portal.views import DashboardInfoView, UserRegistrationView, UserVerificationView, UserLoginView, UserLoginVerificationView, UserUpdateView, UserInfoView, CreateCompanyView, SetCurrentCompanyView, EditCompanyView, CompanyListView, InviteUserView, AcceptEmailInvitationView, AcceptInvitationView, RejectInvitationView, InvitationListView, ListInvitationsView, RemoveMemberView, NotificationListView, MarkReadNotifications, RemoveNotificationView, RemoveAllNotificationsView, CreateCategoryView, CategoryListView, CategoryDetailView, RemoveCategoryView, DesignEffortListView, CreateDesignEffortView, UpdateDesignEffortView, DeleteDesignEffortView, CreateValueView, UpdateValueView, AddDesignEffortViewValue, RemoveDesignEffortViewValue, ValueListView, RetrieveSpecificDesignEffortsView, RemoveValueView
 from rest_framework_simplejwt.views import (
       TokenObtainPairView,
       TokenRefreshView,
@@ -47,6 +47,21 @@ urlpatterns = [
    path('api/notifications/mark-read/', MarkReadNotifications.as_view(), name='mark-read-notifications'),
    path('api/notifications/remove/', RemoveNotificationView.as_view(), name='remove-notification'),
    path('api/notifications/remove-all/', RemoveAllNotificationsView.as_view(), name='remove-all-notifications'),
+   path('api/category/create/', CreateCategoryView.as_view(), name='create-category'),
+   path('api/categories/', CategoryListView.as_view(), name='categories-list'),
+   path('api/category/', CategoryDetailView.as_view(), name='category-detail'),
+   path('api/category/remove/', RemoveCategoryView.as_view(), name='remove-category'),
+   path('api/design-efforts/', DesignEffortListView.as_view(), name='design-efforts-list'),
+   path('api/design-effort/create/', CreateDesignEffortView.as_view(), name='create-design-effort'),
+   path('api/design-effort/update/', UpdateDesignEffortView.as_view(), name='update-design-effort'),
+   path('api/design-effort/delete/', DeleteDesignEffortView.as_view(), name='delete-design-effort'),
+   path('api/value/create/', CreateValueView.as_view(), name='create-value'),
+   path('api/value/update/', UpdateValueView.as_view(), name='update-value'),
+   path('api/value/list/', ValueListView.as_view(), name='value-list'),
+   path('api/value/design-effort/add/', AddDesignEffortViewValue.as_view(), name='add-design-effort'),
+   path('api/value/design-effort/remove/', RemoveDesignEffortViewValue.as_view(), name='remove-design-effort'),
+   path('api/design-effort/retrieve/', RetrieveSpecificDesignEffortsView.as_view(), name='retrieve-specific-design-efforts'),
+   path('api/value/remove/', RemoveValueView.as_view(), name='remove-value'),
        # ... your other urls
    path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
    path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),

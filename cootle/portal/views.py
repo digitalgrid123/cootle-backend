@@ -16,8 +16,8 @@ from rest_framework.views import APIView
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
 from .permissions import IsAdminUser
-from .models import User, Company, Invitation, Membership, Notification
-from .serializers import UserSerializer, UserAccessSerializer, UserVerificationSerializer, UserUpdateSerializer, CompanySerializer, InvitationSerializer, InvitationListSerializer, AcceptEmailInvitationSerializer, AcceptInvitationSerializer, NotificationSerializer
+from .models import User, Company, Invitation, Membership, Notification, Category, DesignEffort, Value, Objective, ProductOutcome
+from .serializers import UserSerializer, UserAccessSerializer, UserVerificationSerializer, UserUpdateSerializer, CompanySerializer, InvitationSerializer, InvitationListSerializer, AcceptEmailInvitationSerializer, AcceptInvitationSerializer, NotificationSerializer, CategorySerializer, DesignEffortSerializer, ValueSerializer, ObjectiveSerializer, ProductOutcomeSerializer
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 from .utils import send_verification_email, send_login_email, send_invitation_email, send_invitation_message
@@ -738,3 +738,480 @@ class RemoveAllNotificationsView(generics.DestroyAPIView):
         notifications = Notification.objects.filter(user=user)
         notifications.delete()
         return Response({'status': 'All notifications removed successfully'}, status=status.HTTP_200_OK)
+    
+
+class CategoryListView(generics.ListAPIView):
+    serializer_class = CategorySerializer
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(
+        operation_description="List all categories for the current company",
+        responses={200: "List of categories."}
+    )
+    def get(self, request, *args, **kwargs):
+        current_company_id = request.session.get('current_company_id')
+        if not current_company_id:
+            return Response({'status': 'No company selected'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            company = Company.objects.get(id=current_company_id)
+            if not Membership.objects.filter(company=company, user=request.user).exists():
+                return Response({'status': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+            categories = company.category_set.all()
+            serializer = self.get_serializer(categories, many=True)
+
+            # Fetch design efforts associated with the first category
+            first_category = categories.first()
+            design_efforts = DesignEffort.objects.filter(category=first_category)
+            design_efforts_data = DesignEffortSerializer(design_efforts, many=True).data
+            
+            # Add design efforts data to the response
+            serializer.data[0]['design_efforts'] = design_efforts_data
+
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        except Company.DoesNotExist:
+            return Response({'status': 'Company does not exist'}, status=status.HTTP_404_NOT_FOUND)
+        
+class CreateCategoryView(generics.CreateAPIView):
+    serializer_class = CategorySerializer
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(
+        operation_description="Create a new category",
+        responses={201: "Category created successfully."}
+    )
+    def post(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        
+        current_company_id = request.session.get('current_company_id')
+        if not current_company_id:
+            return Response({'status': 'No company selected'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            company = Company.objects.get(id=current_company_id)
+            if not Membership.objects.filter(company=company, user=request.user, is_admin=True).exists():
+                return Response({'status': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+            category = serializer.save(company=company)
+            return Response({'status': 'Category created successfully', 'id': category.id}, status=status.HTTP_201_CREATED)
+        except Company.DoesNotExist:
+            return Response({'status': 'Company does not exist'}, status=status.HTTP_404_NOT_FOUND)
+        
+class CategoryDetailView(generics.ListAPIView):
+    serializer_class = CategorySerializer
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(
+        operation_description="Retrieve design efforts associated with a category",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                'category_id': openapi.Schema(type=openapi.TYPE_INTEGER)
+            }
+        ),
+        responses={200: "List of design efforts associated with the category."},
+    )
+    def list(self, request, *args, **kwargs):
+        # Retrieve the category ID from the request body
+        category_id = request.data.get('category_id')
+        if not category_id:
+            return Response({'status': 'Category ID is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Fetch the category instance using the ID
+        category = Category.objects.filter(pk=category_id).first()
+
+        if category:
+            
+            current_company_id = request.session.get('current_company_id')
+            if not current_company_id:
+                return Response({'status': 'No company selected'}, status=status.HTTP_400_BAD_REQUEST)
+                
+            try:
+                company = Company.objects.get(id=current_company_id)
+                # Check if the user is a member of the company
+                if not Membership.objects.filter(company=company, user=request.user).exists():
+                    return Response({'status': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+
+                # Filter design efforts based on the retrieved category
+                design_efforts = DesignEffort.objects.filter(category=category)
+
+                # Serialize the filtered design efforts
+                serializer = DesignEffortSerializer(design_efforts, many=True)
+                return Response(serializer.data, status=status.HTTP_200_OK)
+            except Company.DoesNotExist:
+                return Response({'status': 'Company does not exist'}, status=status.HTTP_404_NOT_FOUND)
+        else:
+            return Response({"error": "Category not found"}, status=status.HTTP_404_NOT_FOUND)
+        
+
+class RemoveCategoryView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(
+        operation_description="Remove a category",
+        responses={200: "Category removed successfully."}
+    )
+    def delete(self, request, *args, **kwargs):
+        category_id = request.data.get('category_id')
+        current_company_id = request.session.get('current_company_id')
+        user = request.user
+
+
+        if not category_id:
+            return Response({'status': 'Category ID is required'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            category = Category.objects.get(id=category_id)
+            category_company_id = category.company.id
+
+            if str(category_company_id) != str(current_company_id):
+                return Response({'status': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+            
+            # Additional membership check
+            if not Membership.objects.filter(company_id=current_company_id, user=user).exists():
+                return Response({'status': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+            
+            category.delete()
+            return Response({'status': 'Category removed successfully'}, status=status.HTTP_200_OK)
+        except Category.DoesNotExist:
+            return Response({'status': 'Category does not exist'}, status=status.HTTP_404_NOT_FOUND)
+
+
+class DesignEffortListView(generics.ListAPIView):
+    serializer_class = DesignEffortSerializer
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(
+        operation_description="List all design efforts for the current company",
+        responses={200: "List of design efforts."}
+    )
+    def get(self, request, *args, **kwargs):
+        current_company_id = request.session.get('current_company_id')
+        user = request.user
+
+        if not current_company_id:
+            return Response({'status': 'No company selected'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            company = Company.objects.get(id=current_company_id)
+            # Check if the user is a member of the company
+            if not Membership.objects.filter(company=company, user=user).exists():
+                return Response({'status': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+
+            design_efforts = company.designeffort_set.all()
+            serializer = self.get_serializer(design_efforts, many=True)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        except Company.DoesNotExist:
+            return Response({'status': 'Company does not exist'}, status=status.HTTP_404_NOT_FOUND)
+        
+
+class CreateDesignEffortView(generics.CreateAPIView):
+    serializer_class = DesignEffortSerializer
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(
+        operation_description="Create a new design effort",
+        responses={201: "Design effort created successfully."}
+    )
+    def post(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        
+        current_company_id = request.session.get('current_company_id')
+        if not current_company_id:
+            return Response({'status': 'No company selected'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            company = Company.objects.get(id=current_company_id)
+            
+            # Ensure the user is an admin of the company
+            if not Membership.objects.filter(company=company, user=request.user, is_admin=True).exists():
+                return Response({'status': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+            
+            design_effort = serializer.save(company=company)
+            return Response({'status': 'Design effort created successfully', 'id': design_effort.id}, status=status.HTTP_201_CREATED)
+        
+        except Company.DoesNotExist:
+            return Response({'status': 'Company does not exist'}, status=status.HTTP_404_NOT_FOUND)
+
+
+class UpdateDesignEffortView(generics.UpdateAPIView):
+    serializer_class = DesignEffortSerializer
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(
+        operation_description="Update a design effort",
+        responses={200: "Design effort updated successfully."}
+    )
+    def patch(self, request, *args, **kwargs):
+        design_effort_id = request.data.get('effort_id')
+        if not design_effort_id:
+            return Response({'status': 'Design effort ID is required'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            design_effort = DesignEffort.objects.get(id=design_effort_id)
+            
+            if str(design_effort.company.id) != str(request.session.get('current_company_id')):
+                return Response({'status': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+
+            # Ensure the user is an admin of the company
+            if not Membership.objects.filter(company=design_effort.company, user=request.user, is_admin=True).exists():
+                return Response({'status': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+            
+            serializer = self.get_serializer(design_effort, data=request.data, partial=True)
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
+            return Response({'status': 'Design effort updated successfully'}, status=status.HTTP_200_OK)
+        
+        except DesignEffort.DoesNotExist:
+            return Response({'status': 'Design effort does not exist'}, status=status.HTTP_404_NOT_FOUND)
+
+
+
+class DeleteDesignEffortView(generics.DestroyAPIView):
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(
+        operation_description="Delete a design effort",
+        responses={200: "Design effort deleted successfully."}
+    )
+    def delete(self, request, *args, **kwargs):
+        design_effort_id = request.data.get('effort_id')
+        if not design_effort_id:
+            return Response({'status': 'Design effort ID is required'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            if not Membership.objects.filter(company=request.session.get('current_company_id'), user=request.user, is_admin=True).exists():
+                return Response({'status': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+            design_effort = DesignEffort.objects.get(id=design_effort_id)
+            if str(design_effort.company.id) != str(request.session.get('current_company_id')):
+                return Response({'status': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+            
+            design_effort.delete()
+            return Response({'status': 'Design effort deleted successfully'}, status=status.HTTP_200_OK)
+        
+        except DesignEffort.DoesNotExist:
+            return Response({'status': 'Design effort does not exist'}, status=status.HTTP_404_NOT_FOUND)
+        
+class RetrieveSpecificDesignEffortsView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(
+        operation_description="Retrieve information on specific design efforts",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                'design_effort_ids': openapi.Schema(
+                    type=openapi.TYPE_ARRAY,
+                    items=openapi.Items(type=openapi.TYPE_INTEGER),
+                    description='List of design effort IDs'
+                )
+            },
+            required=['design_effort_ids']
+        ),
+        responses={
+            200: "List of design efforts.",
+            400: "Bad request.",
+            403: "Permission denied.",
+            404: "Design effort(s) not found."
+        }
+    )
+    def post(self, request, *args, **kwargs):
+        design_effort_ids = request.data.get('design_effort_ids')
+        if not design_effort_ids:
+            return Response({'status': 'Design effort IDs are required'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        design_efforts = DesignEffort.objects.filter(id__in=design_effort_ids, company_id=request.session.get('current_company_id'))
+        if not design_efforts.exists():
+            return Response({'status': 'Design effort(s) not found or do not belong to the current company'}, status=status.HTTP_404_NOT_FOUND)
+        
+        serializer = DesignEffortSerializer(design_efforts, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class CreateValueView(generics.CreateAPIView):
+    serializer_class = ValueSerializer
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(
+        operation_description="Create a new value",
+        responses={201: "Value created successfully."}
+    )
+    def post(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        
+        current_company_id = request.session.get('current_company_id')
+        if not current_company_id:
+            return Response({'status': 'No company selected'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            company = Company.objects.get(id=current_company_id)
+            
+            # Ensure the user is an admin of the company
+            if not Membership.objects.filter(company=company, user=request.user, is_admin=True).exists():
+                return Response({'status': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+            
+            value = serializer.save(company=company)
+            return Response({'status': 'Value created successfully', 'id': value.id}, status=status.HTTP_201_CREATED)
+        
+        except Company.DoesNotExist:
+            return Response({'status': 'Company does not exist'}, status=status.HTTP_404_NOT_FOUND)
+
+
+class UpdateValueView(generics.UpdateAPIView):
+    serializer_class = ValueSerializer
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(
+        operation_description="Update a value",
+        responses={200: "Value updated successfully."}
+    )
+    def patch(self, request, *args, **kwargs):
+        value_id = request.data.get('value_id')
+        if not value_id:
+            return Response({'status': 'Value ID is required'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            value = Value.objects.get(id=value_id)
+            current_company_id = request.session.get('current_company_id')
+            if not current_company_id or str(value.company.id) != str(current_company_id):
+                return Response({'status': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+
+            # Ensure the user is an admin of the company
+            if not Membership.objects.filter(company=value.company, user=request.user, is_admin=True).exists():
+                return Response({'status': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+            
+            serializer = self.get_serializer(value, data=request.data, partial=True)
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
+            return Response({'status': 'Value updated successfully'}, status=status.HTTP_200_OK)
+        
+        except Value.DoesNotExist:
+            return Response({'status': 'Value does not exist'}, status=status.HTTP_404_NOT_FOUND)
+
+class AddDesignEffortViewValue(generics.GenericAPIView):
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(
+        operation_description="Add a design effort to a value",
+        responses={200: "Design effort added successfully."}
+    )
+    def post(self, request, *args, **kwargs):
+        value_id = request.data.get('value_id')
+        effort_id = request.data.get('effort_id')
+        if not value_id or not effort_id:
+            return Response({'status': 'Value ID and effort ID are required'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            value = Value.objects.get(id=value_id)
+            effort = DesignEffort.objects.get(id=effort_id)
+            current_company_id = request.session.get('current_company_id')
+            if not current_company_id or str(value.company.id) != str(current_company_id) or str(effort.company.id) != str(current_company_id):
+                return Response({'status': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+
+            # Ensure the user is an admin of the company
+            if not Membership.objects.filter(company=value.company, user=request.user, is_admin=True).exists():
+                return Response({'status': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+            
+            value.design_efforts.add(effort)
+            return Response({'status': 'Design effort added successfully'}, status=status.HTTP_200_OK)
+        
+        except Value.DoesNotExist:
+            return Response({'status': 'Value does not exist'}, status=status.HTTP_404_NOT_FOUND)
+        except DesignEffort.DoesNotExist:
+            return Response({'status': 'Design effort does not exist'}, status=status.HTTP_404_NOT_FOUND)
+        
+class RemoveDesignEffortViewValue(generics.DestroyAPIView):
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(
+        operation_description="Remove a design effort from a value",
+        responses={200: "Design effort removed successfully."}
+    )
+    def delete(self, request, *args, **kwargs):
+        value_id = request.data.get('value_id')
+        effort_id = request.data.get('effort_id')
+        if not value_id or not effort_id:
+            return Response({'status': 'Value ID and effort ID are required'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            value = Value.objects.get(id=value_id)
+            effort = DesignEffort.objects.get(id=effort_id)
+            current_company_id = request.session.get('current_company_id')
+            if not current_company_id or str(value.company.id) != str(current_company_id) or str(effort.company.id) != str(current_company_id):
+                return Response({'status': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+
+            # Ensure the user is an admin of the company
+            if not Membership.objects.filter(company=value.company, user=request.user, is_admin=True).exists():
+                return Response({'status': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+            
+            value.design_efforts.remove(effort)
+            return Response({'status': 'Design effort removed successfully'}, status=status.HTTP_200_OK)
+        
+        except Value.DoesNotExist:
+            return Response({'status': 'Value does not exist'}, status=status.HTTP_404_NOT_FOUND)
+        except DesignEffort.DoesNotExist:
+            return Response({'status': 'Design effort does not exist'}, status=status.HTTP_404_NOT_FOUND)
+        
+
+class ValueListView(generics.ListAPIView):
+    serializer_class = ValueSerializer
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(
+        operation_description="List all values for the current company",
+        responses={200: "List of values."}
+    )
+    def get(self, request, *args, **kwargs):
+        current_company_id = request.session.get('current_company_id')
+        user = request.user
+
+        if not current_company_id:
+            return Response({'status': 'No company selected'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            company = Company.objects.get(id=current_company_id)
+            # Check if the user is a member of the company
+            if not Membership.objects.filter(company=company, user=user).exists():
+                return Response({'status': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+
+            values = company.value_set.all()
+            serializer = self.get_serializer(values, many=True)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        except Company.DoesNotExist:
+            return Response({'status': 'Company does not exist'}, status=status.HTTP_404_NOT_FOUND)
+        
+
+class RemoveValueView(generics.DestroyAPIView):
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(
+        operation_description="Remove a value",
+        responses={200: "Value removed successfully."}
+    )
+    def delete(self, request, *args, **kwargs):
+        value_id = request.data.get('value_id')
+        current_company_id = request.session.get('current_company_id')
+        user = request.user
+
+
+        if not value_id:
+            return Response({'status': 'Value ID is required'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            value = Value.objects.get(id=value_id)
+            value_company_id = value.company.id
+
+            if str(value_company_id) != str(current_company_id):
+                return Response({'status': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+            
+            # Additional membership check
+            if not Membership.objects.filter(company_id=current_company_id, user=user, is_admin=True):
+                return Response({'status': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+            
+            value.delete()
+            return Response({'status': 'Value removed successfully'}, status=status.HTTP_200_OK)
+        except Value.DoesNotExist:
+            return Response({'status': 'Value does not exist'}, status=status.HTTP_404_NOT_FOUND)
+        
