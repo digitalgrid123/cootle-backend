@@ -93,36 +93,20 @@ class DesignEffort(models.Model):
     def __str__(self):
         return self.title
 
-class Objective(models.Model):
+class Mapping(models.Model):
+    class TypeChoices(models.TextChoices):
+        OBJECTIVE = 'OBJ', 'Objective'
+        VALUE = 'VAL', 'Value'
+        OUTCOME = 'OUT', 'Outcome'
+
     company = models.ForeignKey(Company, on_delete=models.CASCADE)
     title = models.CharField(max_length=255)
     description = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     design_efforts = models.ManyToManyField(DesignEffort, blank=True)
-
-    def __str__(self):
-        return self.title
-
-class Value(models.Model):
-    company = models.ForeignKey(Company, on_delete=models.CASCADE)
-    title = models.CharField(max_length=255)
-    description = models.TextField()
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-    design_efforts = models.ManyToManyField(DesignEffort, blank=True)
+    type = models.CharField(max_length=3, choices=TypeChoices.choices)
 
     def __str__(self):
         return self.title
     
-
-class ProductOutcome(models.Model):
-    company = models.ForeignKey(Company, on_delete=models.CASCADE)
-    title = models.CharField(max_length=255)
-    description = models.TextField()
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-    design_efforts = models.ManyToManyField(DesignEffort, blank=True)
-
-    def __str__(self):
-        return self.title

@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import User, Company, Invitation, Notification, Category, DesignEffort, Objective, Value, ProductOutcome
+from .models import User, Company, Invitation, Notification, Category, DesignEffort, Mapping
 from django.conf import settings
 
 class UserSerializer(serializers.ModelSerializer):
@@ -142,23 +142,7 @@ class DesignEffortSerializer(serializers.ModelSerializer):
         return instance
 
 
-class ObjectiveSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Objective
-        fields = ['id', 'title', 'description', 'created_at', 'updated_at',  'design_efforts']
-        extra_kwargs = {
-            'title': {'required': True},
-            'description': {'required': True},
-        }
-
-    def update(self, instance, validated_data):
-        instance.title = validated_data.get('title', instance.title)
-        instance.description = validated_data.get('description', instance.description)
-        instance.design_efforts.set(validated_data.get('design_efforts', instance.design_efforts.all()))
-        instance.save()
-        return instance
-
-class ValueSerializer(serializers.ModelSerializer):
+class MappingSerializer(serializers.ModelSerializer):
     design_efforts = serializers.PrimaryKeyRelatedField(
         queryset=DesignEffort.objects.all(),
         many=True,
@@ -166,42 +150,28 @@ class ValueSerializer(serializers.ModelSerializer):
     )
 
     class Meta:
-        model = Value
-        fields = ['id', 'title', 'description', 'created_at', 'updated_at', 'design_efforts']
+        model = Mapping
+        fields = ['id', 'title', 'description', 'created_at', 'updated_at', 'design_efforts', 'type']
         extra_kwargs = {
             'title': {'required': True},
             'description': {'required': True},
+            'type': {'required': True}
         }
 
     def create(self, validated_data):
         design_efforts = validated_data.pop('design_efforts', [])
-        value = Value.objects.create(**validated_data)
-        value.design_efforts.set(design_efforts)
-        return value
+        mapping = Mapping.objects.create(**validated_data)
+        mapping.design_efforts.set(design_efforts)
+        return mapping
 
     def update(self, instance, validated_data):
         instance.title = validated_data.get('title', instance.title)
         instance.description = validated_data.get('description', instance.description)
+        instance.type = instance.type
         
         if 'design_efforts' in validated_data:
             design_efforts = validated_data.pop('design_efforts')
             instance.design_efforts.set(design_efforts)
 
-        instance.save()
-        return instance
-
-
-class ProductOutcomeSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = ProductOutcome
-        fields = ['id', 'title', 'description', 'created_at', 'updated_at']
-        extra_kwargs = {
-            'title': {'required': True},
-            'description': {'required': True},
-        }
-
-    def update(self, instance, validated_data):
-        instance.title = validated_data.get('title', instance.title)
-        instance.description = validated_data.get('description', instance.description)
         instance.save()
         return instance

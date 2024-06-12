@@ -3,7 +3,7 @@ from django.urls import path, re_path
 from rest_framework import permissions
 from drf_yasg.views import get_schema_view
 from drf_yasg import openapi
-from portal.views import DashboardInfoView, UserRegistrationView, UserVerificationView, UserLoginView, UserLoginVerificationView, UserUpdateView, UserInfoView, CreateCompanyView, SetCurrentCompanyView, EditCompanyView, CompanyListView, InviteUserView, AcceptEmailInvitationView, AcceptInvitationView, RejectInvitationView, InvitationListView, ListInvitationsView, RemoveMemberView, NotificationListView, MarkReadNotifications, RemoveNotificationView, RemoveAllNotificationsView, CreateCategoryView, CategoryListView, CategoryDetailView, RemoveCategoryView, DesignEffortListView, CreateDesignEffortView, UpdateDesignEffortView, DeleteDesignEffortView, CreateValueView, UpdateValueView, AddDesignEffortViewValue, RemoveDesignEffortViewValue, ValueListView, RetrieveSpecificDesignEffortsView, RemoveValueView
+from portal.views import DashboardInfoView, UserRegistrationView, UserVerificationView, UserLoginView, UserLoginVerificationView, UserUpdateView, UserInfoView, CreateCompanyView, SetCurrentCompanyView, EditCompanyView, CompanyListView, InviteUserView, AcceptEmailInvitationView, AcceptInvitationView, RejectInvitationView, InvitationListView, ListInvitationsView, RemoveMemberView, NotificationListView, MarkReadNotifications, RemoveNotificationView, RemoveAllNotificationsView, CreateCategoryView, CategoryListView, CategoryDetailView, RemoveCategoryView, DesignEffortListView, CreateDesignEffortView, UpdateDesignEffortView, DeleteDesignEffortView, CreateMappingView, UpdateMappingView, AddDesignEffortViewMapping, RemoveDesignEffortViewMapping, MappingListView, RetrieveSpecificDesignEffortsView, RemoveMappingView
 from rest_framework_simplejwt.views import (
       TokenObtainPairView,
       TokenRefreshView,
@@ -55,13 +55,13 @@ urlpatterns = [
    path('api/design-effort/create/', CreateDesignEffortView.as_view(), name='create-design-effort'),
    path('api/design-effort/update/', UpdateDesignEffortView.as_view(), name='update-design-effort'),
    path('api/design-effort/delete/', DeleteDesignEffortView.as_view(), name='delete-design-effort'),
-   path('api/value/create/', CreateValueView.as_view(), name='create-value'),
-   path('api/value/update/', UpdateValueView.as_view(), name='update-value'),
-   path('api/value/list/', ValueListView.as_view(), name='value-list'),
-   path('api/value/design-effort/add/', AddDesignEffortViewValue.as_view(), name='add-design-effort'),
-   path('api/value/design-effort/remove/', RemoveDesignEffortViewValue.as_view(), name='remove-design-effort'),
+   path('api/mapping/create/', CreateMappingView.as_view(), name='create-mapping'),
+   path('api/mapping/update/', UpdateMappingView.as_view(), name='update-mapping'),
+   path('api/mapping/list/', MappingListView.as_view(), name='mapping-list'),
+   path('api/mapping/design-effort/add/', AddDesignEffortViewMapping.as_view(), name='add-design-effort'),
+   path('api/mapping/design-effort/remove/', RemoveDesignEffortViewMapping.as_view(), name='remove-design-effort'),
    path('api/design-effort/retrieve/', RetrieveSpecificDesignEffortsView.as_view(), name='retrieve-specific-design-efforts'),
-   path('api/value/remove/', RemoveValueView.as_view(), name='remove-value'),
+   path('api/mapping/remove/', RemoveMappingView.as_view(), name='remove-mapping'),
        # ... your other urls
    path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
    path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
