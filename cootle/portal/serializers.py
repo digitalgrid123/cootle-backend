@@ -135,9 +135,9 @@ class DesignEffortSerializer(serializers.ModelSerializer):
         return super().create(validated_data)
 
     def update(self, instance, validated_data):
-        instance.title = validated_data.get('title', instance.title)
+        instance.title = instance.title
         instance.description = validated_data.get('description', instance.description)
-        instance.category = validated_data.get('category', instance.category)
+        instance.category = instance.category
         instance.save()
         return instance
 
@@ -165,13 +165,9 @@ class MappingSerializer(serializers.ModelSerializer):
         return mapping
 
     def update(self, instance, validated_data):
-        instance.title = validated_data.get('title', instance.title)
+        instance.title = instance.title
         instance.description = validated_data.get('description', instance.description)
         instance.type = instance.type
-        
-        if 'design_efforts' in validated_data:
-            design_efforts = validated_data.pop('design_efforts')
-            instance.design_efforts.set(design_efforts)
 
         instance.save()
         return instance

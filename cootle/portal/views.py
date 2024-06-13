@@ -22,6 +22,9 @@ from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 from .utils import send_verification_email, send_login_email, send_invitation_email, send_invitation_message
 from .admin import assign_company
+from django.db.models.signals import post_save
+from django.dispatch import receiver
+from .utils import load_default_mappings
 
 # Create your views here.
 
@@ -44,6 +47,10 @@ def delete_session(request):
         pass
     return HttpResponse("Session data deleted")
 
+@receiver(post_save, sender=Company)
+def create_default_mappings(sender, instance, created, **kwargs):
+    if created:
+        load_default_mappings(instance)
 
 class UserRegistrationView(generics.CreateAPIView):
     serializer_class = UserAccessSerializer
@@ -1144,8 +1151,9 @@ class AddDesignEffortViewMapping(generics.GenericAPIView):
     def post(self, request, *args, **kwargs):
         mapping_id = request.data.get('mapping_id')
         effort_id = request.data.get('effort_id')
-        if not mapping_id or not effort_id:
-            return Response({'status': 'Mapping ID and effort ID are required'}, status=status.HTTP_400_BAD_REQUEST)
+        mapping_type = request.data.get('type')
+        if not mapping_id or not effort_id or not mapping_type:
+            return Response({'status': 'Mapping ID, effort ID, and type are required'}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             mapping = Mapping.objects.get(id=mapping_id)
@@ -1157,6 +1165,10 @@ class AddDesignEffortViewMapping(generics.GenericAPIView):
             # Ensure the user is an admin of the company
             if not Membership.objects.filter(company=mapping.company, user=request.user, is_admin=True).exists():
                 return Response({'status': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+
+            if mapping.type != mapping_type:
+                return Response({'status': 'Mapping type mismatch'}, status=status.HTTP_400_BAD_REQUEST)
+
 
             mapping.design_efforts.add(effort)
             return Response({'status': 'Design effort added successfully'}, status=status.HTTP_200_OK)
@@ -1177,8 +1189,9 @@ class RemoveDesignEffortViewMapping(generics.DestroyAPIView):
     def delete(self, request, *args, **kwargs):
         mapping_id = request.data.get('mapping_id')
         effort_id = request.data.get('effort_id')
-        if not mapping_id or not effort_id:
-            return Response({'status': 'Mapping ID and effort ID are required'}, status=status.HTTP_400_BAD_REQUEST)
+        mapping_type = request.data.get('type')
+        if not mapping_id or not effort_id or not mapping_type:
+            return Response({'status': 'Mapping ID, effort ID, and type are required'}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             mapping = Mapping.objects.get(id=mapping_id)
@@ -1190,6 +1203,9 @@ class RemoveDesignEffortViewMapping(generics.DestroyAPIView):
             # Ensure the user is an admin of the company
             if not Membership.objects.filter(company=mapping.company, user=request.user, is_admin=True).exists():
                 return Response({'status': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+
+            if mapping.type != mapping_type:
+                return Response({'status': 'Mapping type mismatch'}, status=status.HTTP_400_BAD_REQUEST)
 
             mapping.design_efforts.remove(effort)
             return Response({'status': 'Design effort removed successfully'}, status=status.HTTP_200_OK)
@@ -1208,13 +1224,16 @@ class MappingListView(generics.ListAPIView):
         operation_description="List all mappings for the current company",
         responses={200: "List of mappings."}
     )
-    def get(self, request, *args, **kwargs):
+    def post(self, request, *args, **kwargs):
         current_company_id = request.session.get('current_company_id')
         user = request.user
-        mapping_type = request.query_params.get('type', None)
+        mapping_type = request.data.get('type')
 
         if not current_company_id:
             return Response({'status': 'No company selected'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if not mapping_type:
+            return Response({'status': 'Mapping type not selected'}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             company = Company.objects.get(id=current_company_id)
@@ -1222,12 +1241,9 @@ class MappingListView(generics.ListAPIView):
             if not Membership.objects.filter(company=company, user=user).exists():
                 return Response({'status': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
 
-            if mapping_type:
-                mappings = company.mappings_set.filter(type=mapping_type)
-            else:
-                return Response({'status':'Mapping type not selected'}, status=status.HTTP_400_BAD_REQUEST)
+            mappings = company.mapping_set.filter(type=mapping_type)
 
-            serializer = self.get_serializer(mappings, many=True)
+            serializer = self.serializer_class(mappings, many=True)
             return Response(serializer.data, status=status.HTTP_200_OK)
         except Company.DoesNotExist:
             return Response({'status': 'Company does not exist'}, status=status.HTTP_404_NOT_FOUND)

@@ -1,0 +1,16 @@
+{
+    "default_mappings": [
+        {
+            "title": "Default Mapping 1",
+            "description": "Description for Default Mapping 1",
+            "type": "VAL",
+            "design_efforts": []
+        },
+        {
+            "title": "Default Mapping 2",
+            "description": "Description for Default Mapping 2",
+            "type": "OUT",
+            "design_efforts": []
+        }
+    ]
+}

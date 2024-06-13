@@ -3,6 +3,9 @@ from django.conf import settings
 from email.mime.image import MIMEImage
 from django.template.loader import render_to_string
 import os
+import json
+from pathlib import Path
+from .models import Company, Mapping, DesignEffort
 
 def send_verification_email(email, code):
     subject = 'Your Verification Code'
@@ -69,3 +72,37 @@ def send_invitation_message(invitation):
         except IOError:
             # Log an error or handle it as needed
             pass
+
+def load_default_mappings(company):
+    """
+    Load default mappings from a JSON file and create them in the database if they do not exist.
+    """
+    json_file_path = Path(__file__).resolve().parent / 'default_mappings.json'
+    
+    with open(json_file_path, 'r') as file:
+        data = json.load(file)
+
+    default_mappings = data.get("default_mappings", [])
+    
+    for mapping_data in default_mappings:
+        title = mapping_data.get('title')
+        description = mapping_data.get('description')
+        mapping_type = mapping_data.get('type')
+        design_efforts = mapping_data.get('design_efforts', [])
+
+        # Check if the mapping already exists
+        if not Mapping.objects.filter(company=company, title=title, type=mapping_type).exists():
+            # Create the mapping
+            mapping = Mapping.objects.create(
+                company=company,
+                title=title,
+                description=description,
+                type=mapping_type
+            )
+            
+            # Associate design efforts if any
+            if design_efforts:
+                efforts = DesignEffort.objects.filter(id__in=design_efforts)
+                mapping.design_efforts.add(*efforts)
+
+            mapping.save()
