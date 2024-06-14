@@ -851,17 +851,11 @@ class CategoryDetailView(generics.ListAPIView):
 
     @swagger_auto_schema(
         operation_description="Retrieve design efforts associated with a category",
-        request_body=openapi.Schema(
-            type=openapi.TYPE_OBJECT,
-            properties={
-                'category_id': openapi.Schema(type=openapi.TYPE_INTEGER)
-            }
-        ),
         responses={200: "List of design efforts associated with the category."},
     )
-    def list(self, request, *args, **kwargs):
-        # Retrieve the category ID from the request body
-        category_id = request.data.get('category_id')
+    def get(self, request, *args, **kwargs):
+        # Retrieve the category ID from the URL parameters
+        category_id = self.kwargs.get('category_id')
         if not category_id:
             return Response({'status': 'Category ID is required'}, status=status.HTTP_400_BAD_REQUEST)
 
