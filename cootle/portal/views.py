@@ -1136,6 +1136,7 @@ class UpdateMappingView(generics.UpdateAPIView):
 
 
 class AddDesignEffortViewMapping(generics.GenericAPIView):
+    serializer_class = MappingSerializer
     permission_classes = [IsAuthenticated]
 
     @swagger_auto_schema(
@@ -1174,6 +1175,7 @@ class AddDesignEffortViewMapping(generics.GenericAPIView):
 
 
 class RemoveDesignEffortViewMapping(generics.DestroyAPIView):
+    serializer_class = MappingSerializer
     permission_classes = [IsAuthenticated]
 
     @swagger_auto_schema(
