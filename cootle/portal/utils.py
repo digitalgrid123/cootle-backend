@@ -5,7 +5,7 @@ from django.template.loader import render_to_string
 import os
 import json
 from pathlib import Path
-from .models import Company, Mapping, DesignEffort
+from .models import Company, Mapping, DesignEffort, Category
 
 def send_verification_email(email, code):
     subject = 'Your Verification Code'
@@ -82,6 +82,36 @@ def load_default_mappings(company):
     with open(json_file_path, 'r') as file:
         data = json.load(file)
 
+    # Create default categories
+    default_categories = data.get("default_categories", [])
+    category_mapping = {}
+    
+    for category_data in default_categories:
+        name = category_data.get('name')
+        category, created = Category.objects.get_or_create(
+            company=company,
+            name=name
+        )
+        category_mapping[name] = category
+
+    # Create default design efforts
+    default_design_efforts = data.get("default_design_efforts", [])
+    
+    for effort_data in default_design_efforts:
+        title = effort_data.get('title')
+        description = effort_data.get('description')
+        category_name = effort_data.get('category')
+        category = category_mapping.get(category_name)
+        
+        if category:
+            DesignEffort.objects.get_or_create(
+                company=company,
+                category=category,
+                title=title,
+                description=description
+            )
+
+    # Create default mappings
     default_mappings = data.get("default_mappings", [])
     
     for mapping_data in default_mappings:

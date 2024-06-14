@@ -1,16 +1,95 @@
 {
+    "default_categories": [
+      {
+        "name": "User Research"
+      },
+      {
+        "name": "Default Category 1"
+      },
+      {
+        "name": "Default Category 2"
+      }
+    ],
+    "default_design_efforts": [
+      {
+        "title": "User Personal Creation",
+        "description": "**User Persona Creation** is the process of developing fictional characters that represent a user group that the product is designed for. These characters are based on research about the target audience, and include details like demographics, goals, needs, behaviors, and pain points.\n\nBy creating user personas, designers can gain a much deeper understanding of the people who will be using their product. This understanding is crucial for creating products that are:\n\n- **User-centered:** When designers understand user needs, they can design products that solve real problems for those users. This leads to a more satisfying and successful product overall.\n- **Usable and effective:** Personas help designers identify potential usability issues early in the design process. By considering how the persona would interact with the product, designers can make sure that the product is easy to use and understand.\n- **Directed by data:** Personas can help to ground design decisions in real user data. This can be especially helpful when there are competing priorities or design ideas. By referring back to the personas, designers can make sure that their decisions are aligned with the needs of the target user.\n\nIn short, user persona creation is a valuable tool that can help designers create products that are more successful, usable, and enjoyable for their target audience.",
+        "category": "User Research"
+      },
+      {
+        "title": "Journey Maps Creation",
+        "description": "**User Journey Mapping** is a tool that designers use to visualize the process that a user goes through when interacting with a product. The user journey map is a visual representation of the user's experience, from the moment they first encounter the product to the moment they stop using it.",
+        "category" :"User Research"
+      },
+      {
+        "title": "User Testing",
+        "description": "**User Testing** is a research method that designers use to evaluate a product by testing it with real users. This can be done at various stages of the design process, from early prototypes to finished products. By observing how users interact with the product, designers can identify usability issues, understand user behavior, and gather feedback that can be used to improve the product.",
+        "category": "User Research"
+      },
+      {
+        "title": "Card Sorting Exercises & Reports",
+        "description": "Description for default design effort 1",
+        "category": "User Research"
+      },
+      {
+        "title": "User Surveys and Reports",
+        "description": "User Survey and Reports",
+        "category": "User Research"
+      },
+      {
+        "title":"User Interviews & Reports",
+        "description":"User Interviews & Reports",
+        "category":"User Research"
+      },
+      {
+        "title":"Empathy Maps & Reports",
+        "description":"Empathy Maps & Reports",
+        "category":"User Research"
+      },
+      {
+        "title":"Stakeholder Interviews & Reports",
+        "description":"Stakeholder Interviews & Reports",
+        "category":"User Research"
+      },
+      {
+        "title":"Competitive Analysis & Reports",
+        "description":"Competitive Analysis & Reports",
+        "category":"User Research"
+      },
+      {
+        "title":"Contextual Inquiry & Reports",
+        "description":"Contextual Inquiry & Reports",
+        "category":"User Research"
+      },
+      {
+        "title":"User Testing Planning & Note",
+        "description":"User Testing & Note",
+        "category":"User Research"	
+      },
+      {
+        "title": "Default Design Effort 1",
+        "description": "Description for default design effort 1",
+        "category": "Default Category 1"
+      },
+      {
+        "title": "Default Design Effort 2",
+        "description": "Description for default design effort 2",
+        "category": "Default Category 2"
+      }
+    ],
     "default_mappings": [
-        {
-            "title": "Default Mapping 1",
-            "description": "Description for Default Mapping 1",
-            "type": "VAL",
-            "design_efforts": []
-        },
-        {
-            "title": "Default Mapping 2",
-            "description": "Description for Default Mapping 2",
-            "type": "OUT",
-            "design_efforts": []
-        }
+      {
+        "title": "Default Mapping 1",
+        "description": "Description for default mapping 1",
+        "type": "VAL",
+        "design_efforts": []
+      },
+      {
+        "title": "Default Mapping 2",
+        "description": "Description for default mapping 2",
+        "type": "OBJ",
+        "design_efforts": []
+      }
     ]
-}
+  }
+  
