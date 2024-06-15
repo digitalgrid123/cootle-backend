@@ -1,3 +1,5 @@
+import json
+from pathlib import Path
 from django.shortcuts import render, get_object_or_404
 from django.contrib.auth import get_user_model
 from django.core.mail import send_mail
@@ -5,8 +7,9 @@ from django.utils.crypto import get_random_string
 from django.utils import timezone
 from django.db import transaction
 from django.db.models import Q
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 from django.conf import settings
+from django.views import View
 from rest_framework import status, generics, serializers
 from rest_framework.response import Response
 from rest_framework.exceptions import ValidationError
@@ -51,6 +54,33 @@ def delete_session(request):
 def create_default_mappings(sender, instance, created, **kwargs):
     if created:
         load_default_mappings(instance)
+
+class DefaultMappingsView(View):
+    def get(self, request, *args, **kwargs):
+        json_file_path = Path(__file__).resolve().parent / 'default_mappings.json'
+        if not json_file_path.exists():
+            return JsonResponse({'status': 'JSON file does not exist'}, status=404)
+
+        with open(json_file_path, 'r') as file:
+            data = json.load(file)
+
+        return JsonResponse(data, status=200)
+
+    def post(self, request, *args, **kwargs):
+        if 'json_file' not in request.FILES:
+            return JsonResponse({'status': 'JSON file is required'}, status=400)
+
+        json_file = request.FILES['json_file']
+        try:
+            file_content = json_file.read()
+            data = json.loads(file_content)
+            json_file_path = Path(__file__).resolve().parent / 'default_mappings.json'
+            with open(json_file_path, 'w') as file:
+                json.dump(data, file, indent=4)
+            return JsonResponse({'status': 'JSON file uploaded successfully'}, status=200)
+        except json.JSONDecodeError:
+            return JsonResponse({'status': 'Invalid JSON file'}, status=400)
+
 
 class UserRegistrationView(generics.CreateAPIView):
     serializer_class = UserAccessSerializer
