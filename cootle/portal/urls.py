@@ -3,7 +3,7 @@ from django.urls import path, re_path
 from rest_framework import permissions
 from drf_yasg.views import get_schema_view
 from drf_yasg import openapi
-from portal.views import DefaultMappingsView, DashboardInfoView, UserRegistrationView, UserVerificationView, UserLoginView, UserLoginVerificationView, UserUpdateView, UserInfoView, CreateCompanyView, SetCurrentCompanyView, EditCompanyView, CompanyListView, InviteUserView, AcceptEmailInvitationView, AcceptInvitationView, RejectInvitationView, InvitationListView, ListInvitationsView, RemoveMemberView, NotificationListView, MarkReadNotifications, RemoveNotificationView, RemoveAllNotificationsView, CreateCategoryView, CategoryListView, CategoryDetailView, RemoveCategoryView, DesignEffortListView, CreateDesignEffortView, UpdateDesignEffortView, DeleteDesignEffortView, CreateMappingView, UpdateMappingView, AddDesignEffortViewMapping, RemoveDesignEffortViewMapping, MappingListView, RetrieveSpecificDesignEffortsView, RemoveMappingView
+from portal.views import csrf_token, DefaultMappingsView, ResetMappingDataView,  DashboardInfoView, UserRegistrationView, UserVerificationView, UserLoginView, UserLoginVerificationView, UserUpdateView, UserInfoView, CreateCompanyView, SetCurrentCompanyView, EditCompanyView, CompanyListView, InviteUserView, AcceptEmailInvitationView, AcceptInvitationView, RejectInvitationView, InvitationListView, ListInvitationsView, RemoveMemberView, NotificationListView, MarkReadNotifications, RemoveNotificationView, RemoveAllNotificationsView, CreateCategoryView, CategoryListView, CategoryDetailView, RemoveCategoryView, DesignEffortListView, CreateDesignEffortView, UpdateDesignEffortView, DeleteDesignEffortView, CreateMappingView, UpdateMappingView, AddDesignEffortViewMapping, RemoveDesignEffortViewMapping, MappingListView, RetrieveSpecificDesignEffortsView, RemoveMappingView
 from rest_framework_simplejwt.views import (
       TokenObtainPairView,
       TokenRefreshView,
@@ -23,7 +23,9 @@ schema_view = get_schema_view(
 )
 
 urlpatterns = [
+   path('api/csrf-token/', csrf_token, name='csrf-token'),
    path('api/default-mappings/', DefaultMappingsView.as_view(), name='default-mappings'),
+   path('api/reset-mapping-data/', ResetMappingDataView.as_view(), name='reset-mapping-data'),
    path('api/dashboard/', DashboardInfoView.as_view(), name='dashboard-info'),
    path('api/user/register/', UserRegistrationView.as_view(), name='user-registration'),
    path('api/user/verify/', UserVerificationView.as_view(), name='user-verification'),

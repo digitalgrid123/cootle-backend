@@ -10,6 +10,7 @@ from django.db.models import Q
 from django.http import HttpResponse, JsonResponse
 from django.conf import settings
 from django.views import View
+from django.views.decorators.csrf import ensure_csrf_cookie
 from rest_framework import status, generics, serializers
 from rest_framework.response import Response
 from rest_framework.exceptions import ValidationError
@@ -50,6 +51,10 @@ def delete_session(request):
         pass
     return HttpResponse("Session data deleted")
 
+@ensure_csrf_cookie
+def csrf_token(request):
+    return JsonResponse({'csrfToken': request.META.get('CSRF_COOKIE')})
+
 @receiver(post_save, sender=Company)
 def create_default_mappings(sender, instance, created, **kwargs):
     if created:
@@ -81,6 +86,70 @@ class DefaultMappingsView(View):
         except json.JSONDecodeError:
             return JsonResponse({'status': 'Invalid JSON file'}, status=400)
 
+class ResetMappingDataView(View):
+
+    def get_default_data(self):
+        json_file_path = Path(__file__).resolve().parent / 'default_mappings.json'
+        with open(json_file_path, 'r') as file:
+            data = json.load(file)
+        return data
+
+    @transaction.atomic
+    def post(self, request, *args, **kwargs):
+        company_id = request.session.get('current_company_id')
+        if not company_id:
+            return JsonResponse({'status': 'No company selected'}, status=400)
+
+        try:
+            company = Company.objects.get(id=company_id)
+            data = self.get_default_data()
+
+            # Clear existing data
+            Category.objects.filter(company=company).delete()
+            DesignEffort.objects.filter(company=company).delete()
+            Mapping.objects.filter(company=company).delete()
+
+            # Create default categories
+            categories = {}
+            for category_data in data.get('default_categories', []):
+                category = Category.objects.create(
+                    company=company,
+                    name=category_data['name']
+                )
+                categories[category.name] = category
+
+            # Create default design efforts
+            design_efforts = {}
+            for effort_data in data.get('default_design_efforts', []):
+                category_name = effort_data['category']
+                category = categories.get(category_name)
+                if category:
+                    effort = DesignEffort.objects.create(
+                        company=company,
+                        category=category,
+                        title=effort_data['title'],
+                        description=effort_data['description']
+                    )
+                    design_efforts[effort.title] = effort
+
+            # Create default mappings
+            for mapping_data in data.get('default_mappings', []):
+                mapping = Mapping.objects.create(
+                    company=company,
+                    title=mapping_data['title'],
+                    description=mapping_data['description'],
+                    type=mapping_data['type']
+                )
+                for effort_title in mapping_data.get('design_efforts', []):
+                    effort = design_efforts.get(effort_title)
+                    if effort:
+                        mapping.design_efforts.add(effort)
+                mapping.save()
+
+            return JsonResponse({'status': 'Company data reset to default'}, status=200)
+
+        except Company.DoesNotExist:
+            return JsonResponse({'status': 'Company does not exist'}, status=404)
 
 class UserRegistrationView(generics.CreateAPIView):
     serializer_class = UserAccessSerializer
