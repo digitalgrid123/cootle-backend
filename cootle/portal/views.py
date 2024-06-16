@@ -86,7 +86,8 @@ class DefaultMappingsView(View):
         except json.JSONDecodeError:
             return JsonResponse({'status': 'Invalid JSON file'}, status=400)
 
-class ResetMappingDataView(View):
+class ResetMappingDataView(APIView):
+    permission_classes = [IsAuthenticated]
 
     def get_default_data(self):
         json_file_path = Path(__file__).resolve().parent / 'default_mappings.json'
@@ -102,6 +103,8 @@ class ResetMappingDataView(View):
 
         try:
             company = Company.objects.get(id=company_id)
+            if not Membership.objects.filter(company=company, user=request.user, is_admin=True).exists():
+                return JsonResponse({'status': 'Permission denied'}, status=403)
             data = self.get_default_data()
 
             # Clear existing data
