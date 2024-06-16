@@ -60,20 +60,28 @@ def create_default_mappings(sender, instance, created, **kwargs):
     if created:
         load_default_mappings(instance)
 
-class DefaultMappingsView(View):
+class DefaultMappingsView(APIView):
+    permission_classes = [AllowAny]  # Allow access to all users
+
+    def get_default_data(self):
+        json_file_path = Path(__file__).resolve().parent / 'default_mappings.json'
+        with open(json_file_path, 'r') as file:
+            data = json.load(file)
+        return data
+
     def get(self, request, *args, **kwargs):
         json_file_path = Path(__file__).resolve().parent / 'default_mappings.json'
         if not json_file_path.exists():
-            return JsonResponse({'status': 'JSON file does not exist'}, status=404)
+            return Response({'status': 'JSON file does not exist'}, status=status.HTTP_404_NOT_FOUND)
 
         with open(json_file_path, 'r') as file:
             data = json.load(file)
 
-        return JsonResponse(data, status=200)
+        return Response(data, status=status.HTTP_200_OK)
 
     def post(self, request, *args, **kwargs):
         if 'json_file' not in request.FILES:
-            return JsonResponse({'status': 'JSON file is required'}, status=400)
+            return Response({'status': 'JSON file is required'}, status=status.HTTP_400_BAD_REQUEST)
 
         json_file = request.FILES['json_file']
         try:
@@ -82,9 +90,9 @@ class DefaultMappingsView(View):
             json_file_path = Path(__file__).resolve().parent / 'default_mappings.json'
             with open(json_file_path, 'w') as file:
                 json.dump(data, file, indent=4)
-            return JsonResponse({'status': 'JSON file uploaded successfully'}, status=200)
+            return Response({'status': 'JSON file uploaded successfully'}, status=status.HTTP_200_OK)
         except json.JSONDecodeError:
-            return JsonResponse({'status': 'Invalid JSON file'}, status=400)
+            return Response({'status': 'Invalid JSON file'}, status=status.HTTP_400_BAD_REQUEST)
 
 class ResetMappingDataView(APIView):
     permission_classes = [IsAuthenticated]
