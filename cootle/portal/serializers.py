@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import User, Company, Invitation, Notification, Category, DesignEffort, Mapping
+from .models import User, Company, Invitation, Notification, Category, DesignEffort, Mapping, Project, Purpose
 from django.conf import settings
 
 class UserSerializer(serializers.ModelSerializer):
@@ -169,5 +169,54 @@ class MappingSerializer(serializers.ModelSerializer):
         instance.description = validated_data.get('description', instance.description)
         instance.type = instance.type
 
+        instance.save()
+        return instance
+
+class ProjectSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Project
+        fields = ['id', 'name', 'created_at', 'updated_at']
+        extra_kwargs = {
+            'name': {'required': True}
+        }
+
+class PurposeSerializer(serializers.ModelSerializer):
+    desired_outcomes = serializers.PrimaryKeyRelatedField(
+        queryset=Mapping.objects.filter(type='OUT'), many=True, required=False
+    )
+    design_efforts = serializers.PrimaryKeyRelatedField(
+        queryset=DesignEffort.objects.all(), many=True, required=False
+    )
+    project = serializers.PrimaryKeyRelatedField(queryset=Project.objects.all(), required=False)
+
+    class Meta:
+        model = Purpose
+        fields = ['id', 'title', 'description', 'project', 'created_at', 'updated_at', 'desired_outcomes', 'design_efforts']
+        extra_kwargs = {
+            'title': {'required': True},
+            'description': {'required': True}
+        }
+
+    def create(self, validated_data):
+        desired_outcomes = validated_data.pop('desired_outcomes', [])
+        design_efforts = validated_data.pop('design_efforts', [])
+        purpose = Purpose.objects.create(**validated_data)
+        purpose.desired_outcomes.set(desired_outcomes)
+        purpose.design_efforts.set(design_efforts)
+        return purpose
+    
+    def update(self, instance, validated_data):
+        instance.title = validated_data.get('title', instance.title)
+        instance.description = validated_data.get('description', instance.description)
+        instance.project = instance.project
+
+        if 'desired_outcomes' in validated_data:
+            desired_outcomes = validated_data.pop('desired_outcomes')
+            instance.desired_outcomes.set(desired_outcomes)
+        
+        if 'design_efforts' in validated_data:
+            design_efforts = validated_data.pop('design_efforts')
+            instance.design_efforts.set(design_efforts)
+        
         instance.save()
         return instance

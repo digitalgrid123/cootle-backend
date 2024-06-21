@@ -20,8 +20,8 @@ from rest_framework.views import APIView
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
 from .permissions import IsAdminUser
-from .models import User, Company, Invitation, Membership, Notification, Category, DesignEffort, Mapping
-from .serializers import UserSerializer, UserAccessSerializer, UserVerificationSerializer, UserUpdateSerializer, CompanySerializer, InvitationSerializer, InvitationListSerializer, AcceptEmailInvitationSerializer, AcceptInvitationSerializer, NotificationSerializer, CategorySerializer, DesignEffortSerializer, MappingSerializer
+from .models import User, Company, Invitation, Membership, Notification, Category, DesignEffort, Mapping, Project, Purpose
+from .serializers import UserSerializer, UserAccessSerializer, UserVerificationSerializer, UserUpdateSerializer, CompanySerializer, InvitationSerializer, InvitationListSerializer, AcceptEmailInvitationSerializer, AcceptInvitationSerializer, NotificationSerializer, CategorySerializer, DesignEffortSerializer, MappingSerializer, ProjectSerializer, PurposeSerializer
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 from .utils import send_verification_email, send_login_email, send_invitation_email, send_invitation_message
@@ -1385,3 +1385,197 @@ class RemoveMappingView(generics.DestroyAPIView):
             return Response({'status': 'Mapping removed successfully'}, status=status.HTTP_200_OK)
         except Mapping.DoesNotExist:
             return Response({'status': 'Mapping does not exist'}, status=status.HTTP_404_NOT_FOUND)
+
+
+class CreateProjectView(generics.CreateAPIView):
+    serializer_class = ProjectSerializer
+    permission_classes = [IsAuthenticated, IsAdminUser]
+
+    @swagger_auto_schema(
+        operation_description="Create a new project",
+        responses={201: "Project created successfully."}
+    )
+    def post(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        current_company_id = request.session.get('current_company_id')
+        if not current_company_id:
+            return Response({'status': 'No company selected'}, status=status.HTTP_400_BAD_REQUEST)
+
+        user = request.user
+        try:
+            company = Company.objects.get(id=current_company_id)
+            if not Membership.objects.filter(company_id=current_company_id, user=user, is_admin=True):
+                return Response({'status': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+            project = serializer.save(company=company)
+            return Response({'status': 'Project created successfully', 'id': project.id}, status=status.HTTP_201_CREATED)
+        except Company.DoesNotExist:
+            return Response({'status': 'Company does not exist'}, status=status.HTTP_404_NOT_FOUND)
+        
+class ProjectListView(generics.ListAPIView):
+    serializer_class = ProjectSerializer
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(
+        operation_description="List all projects for the current company",
+        responses={200: "List of projects."}
+    )
+    def get(self, request, *args, **kwargs):
+        current_company_id = request.session.get('current_company_id')
+        user = request.user
+
+        if not current_company_id:
+            return Response({'status': 'No company selected'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            company = Company.objects.get(id=current_company_id)
+            # Check if the user is a member of the company
+            if not Membership.objects.filter(company=company, user=user).exists():
+                return Response({'status': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+
+            projects = Project.objects.filter(company=company)
+            serializer = self.get_serializer(projects, many=True)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        except Company.DoesNotExist:
+            return Response({'status': 'Company does not exist'}, status=status.HTTP_404_NOT_FOUND)
+
+class CreatePurposeView(generics.CreateAPIView):
+    serializer_class = PurposeSerializer
+    permission_classes = [IsAuthenticated, IsAdminUser]
+
+    @swagger_auto_schema(
+        operation_description="Create a new purpose",
+        responses={201: "Purpose created successfully."}
+    )
+    def post(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        current_company_id = request.session.get('current_company_id')
+        if not current_company_id:
+            return Response({'status': 'No company selected'}, status=status.HTTP_400_BAD_REQUEST)
+
+        project_id = request.data.get('project_id')
+        if not project_id:
+            return Response({'status': 'Project ID is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            company = Company.objects.get(id=current_company_id)
+            project = Project.objects.get(id=project_id, company=company)
+            user = request.user
+            if not Membership.objects.filter(company=company, user=user, is_admin=True).exists():
+                return Response({'status': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+            
+            # Save the purpose with the associated user and project
+            purpose = serializer.save(user=user, project=project)
+            
+            return Response({'status': 'Purpose created successfully', 'id': purpose.id}, status=status.HTTP_201_CREATED)
+        except Company.DoesNotExist:
+            return Response({'status': 'Company does not exist'}, status=status.HTTP_404_NOT_FOUND)
+        except Project.DoesNotExist:
+            return Response({'status': 'Project does not exist or does not belong to the selected company'}, status=status.HTTP_404_NOT_FOUND)
+        
+class EditPurposeView(generics.UpdateAPIView):
+    serializer_class = PurposeSerializer
+    permission_classes = [IsAuthenticated, IsAdminUser]
+
+    @swagger_auto_schema(
+        operation_description="Edit a purpose",
+        responses={200: "Purpose updated successfully."}
+    )
+    def put(self, request, *args, **kwargs):
+        user = request.user
+        current_company_id = request.session.get('current_company_id')
+
+        if not current_company_id:
+            return Response({'status': 'No company selected'}, status=status.HTTP_400_BAD_REQUEST)
+
+        purpose_id = request.data.get('purpose_id')
+        if not purpose_id:
+            return Response({'status': 'Purpose ID is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            purpose = Purpose.objects.get(id=purpose_id)
+            purpose_company_id = purpose.company.id
+
+            if str(purpose_company_id) != str(current_company_id):
+                return Response({'status': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+
+            # Additional membership check
+            if not Membership.objects.filter(company_id=current_company_id, user=user, is_admin=True):
+                return Response({'status': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+            
+            serializer = self.get_serializer(purpose, data=request.data)
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
+            return Response({'status': 'Purpose updated successfully'}, status=status.HTTP_200_OK)
+        except Purpose.DoesNotExist:
+            return Response({'status': 'Purpose does not exist'}, status=status.HTTP_404_NOT_FOUND)
+        
+class RemovePurposeView(generics.DestroyAPIView):
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(
+        operation_description="Remove a purpose",
+        responses={200: "Purpose removed successfully."}
+    )
+    def delete(self, request, *args, **kwargs):
+        purpose_id = request.data.get('purpose_id')
+        current_company_id = request.session.get('current_company_id')
+        user = request.user
+
+        if not purpose_id:
+            return Response({'status': 'Purpose ID is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            purpose = Purpose.objects.get(id=purpose_id)
+            if purpose.project.company.id != current_company_id:
+                return Response({'status': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+
+
+            # Additional membership check
+            if not Membership.objects.filter(company_id=current_company_id, user=user, is_admin=True):
+                return Response({'status': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+            
+            purpose.delete()
+            return Response({'status': 'Purpose removed successfully'}, status=status.HTTP_200_OK)
+        except Purpose.DoesNotExist:
+            return Response({'status': 'Purpose does not exist'}, status=status.HTTP_404_NOT_FOUND)
+        
+
+class PurposeListView(generics.ListAPIView):
+    serializer_class = PurposeSerializer
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(
+        operation_description="List all purposes for a specific project in the current company",
+        responses={200: "List of purposes."}
+    )
+    def get(self, request, *args, **kwargs):
+        current_company_id = request.session.get('current_company_id')
+        user = request.user
+
+        if not current_company_id:
+            return Response({'status': 'No company selected'}, status=status.HTTP_400_BAD_REQUEST)
+
+        project_id = self.kwargs.get('project_id')
+        try:
+            company = Company.objects.get(id=current_company_id)
+            project = Project.objects.get(id=project_id, company=company)
+
+            # Check if the user is a member of the company
+            if not Membership.objects.filter(company=company, user=user).exists():
+                return Response({'status': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+
+            # Filter purposes based on the specified project
+            purposes = Purpose.objects.filter(project=project)
+            
+            serializer = self.get_serializer(purposes, many=True)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        
+        except Company.DoesNotExist:
+            return Response({'status': 'Company does not exist'}, status=status.HTTP_404_NOT_FOUND)
+        
+        except Project.DoesNotExist:
+            return Response({'status': 'Project does not exist or does not belong to the selected company'}, status=status.HTTP_404_NOT_FOUND)
