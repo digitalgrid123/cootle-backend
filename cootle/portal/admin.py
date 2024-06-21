@@ -3,7 +3,8 @@ from django.contrib.auth.admin import UserAdmin
 from .models import User
 from django.db import transaction
 from django.core.exceptions import ValidationError
-from .models import Membership, Company, Invitation, Notification, DesignEffort, Mapping
+from .models import Membership, Company, Invitation, Notification, DesignEffort, Mapping, Project, Purpose
+from .forms import PurposeAdminForm
 
 
 class CustomUserAdmin(UserAdmin):
@@ -17,6 +18,14 @@ admin.site.register(Invitation)
 admin.site.register(Notification)
 admin.site.register(DesignEffort)
 admin.site.register(Mapping)
+admin.site.register(Project)
+
+@admin.register(Purpose)
+class PurposeAdmin(admin.ModelAdmin):
+    list_display = ('title', 'user', 'project', 'created_at', 'updated_at')
+    search_fields = ('title', 'user__username', 'project__name')
+    filter_horizontal = ('desired_outcomes', 'design_efforts')
+    form = PurposeAdminForm
 
 def assign_company(user, company, is_admin=False):
     # Check if the user is already an admin in any company

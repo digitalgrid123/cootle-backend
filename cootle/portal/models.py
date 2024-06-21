@@ -110,3 +110,24 @@ class Mapping(models.Model):
     def __str__(self):
         return self.title
     
+class Project(models.Model):
+    name = models.CharField(max_length=255)
+    company = models.ForeignKey(Company, on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.name
+    
+class Purpose(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    project = models.ForeignKey(Project, on_delete=models.CASCADE)
+    title = models.CharField(max_length=255)
+    description = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    desired_outcomes = models.ManyToManyField(Mapping, blank=True)
+    design_efforts = models.ManyToManyField(DesignEffort, blank=True)
+
+    def __str__(self):
+        return self.title
