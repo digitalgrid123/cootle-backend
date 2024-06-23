@@ -82,13 +82,13 @@
         "title": "Default Mapping 1",
         "description": "Description for default mapping 1",
         "type": "VAL",
-        "design_efforts": []
+        "design_efforts": ["User Personal Creation", "Contextual Inquiry & Reports"]
       },
       {
         "title": "Default Mapping 2",
         "description": "Description for default mapping 2",
         "type": "OBJ",
-        "design_efforts": []
+        "design_efforts": ["Empathy Maps & Reports"]
       }
     ]
   }

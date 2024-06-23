@@ -72,7 +72,6 @@ def send_invitation_message(invitation):
         except IOError:
             # Log an error or handle it as needed
             pass
-
 def load_default_mappings(company):
     """
     Load default mappings from a JSON file and create them in the database if they do not exist.
@@ -118,7 +117,7 @@ def load_default_mappings(company):
         title = mapping_data.get('title')
         description = mapping_data.get('description')
         mapping_type = mapping_data.get('type')
-        design_efforts = mapping_data.get('design_efforts', [])
+        design_effort_titles = mapping_data.get('design_efforts', [])
 
         # Check if the mapping already exists
         if not Mapping.objects.filter(company=company, title=title, type=mapping_type).exists():
@@ -131,8 +130,12 @@ def load_default_mappings(company):
             )
             
             # Associate design efforts if any
-            if design_efforts:
-                efforts = DesignEffort.objects.filter(id__in=design_efforts)
-                mapping.design_efforts.add(*efforts)
+            if design_effort_titles:
+                for effort_title in design_effort_titles:
+                    try:
+                        effort = DesignEffort.objects.get(company=company, title=effort_title)
+                        mapping.design_efforts.add(effort)
+                    except DesignEffort.DoesNotExist:
+                        print(f"Design effort '{effort_title}' does not exist for the company '{company}'.")
 
             mapping.save()
