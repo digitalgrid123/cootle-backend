@@ -227,19 +227,23 @@ class ProjectEffortLinkSerializer(serializers.ModelSerializer):
         fields = ['id', 'link']
 
 class ProjectEffortSerializer(serializers.ModelSerializer):
-    desired_outcomes = serializers.PrimaryKeyRelatedField(
+    outcome = serializers.PrimaryKeyRelatedField(
         queryset=Mapping.objects.filter(type='OUT'), required=False
     )
-    links = ProjectEffortLinkSerializer(many=True)
+    links = ProjectEffortLinkSerializer(many=True, required=False)
+    project = serializers.PrimaryKeyRelatedField(queryset=Project.objects.all(), required=False)
+    
 
     class Meta:
         model = ProjectEffort
-        fields = ['id', 'user', 'project', 'created_at', 'updated_at', 'design_effort', 'outcome', 'purpose', 'local_id', 'links']
+        fields = ['id', 'project', 'created_at', 'updated_at', 'design_effort', 'outcome', 'purpose', 'local_id', 'links']
         read_only_fields = ['id', 'local_id', 'created_at', 'updated_at']
 
     def create(self, validated_data):
         links_data = validated_data.pop('links', [])
         project_effort = ProjectEffort.objects.create(**validated_data)
+
+        # Create related ProjectEffortLink instances
         for link_data in links_data:
             ProjectEffortLink.objects.create(project_effort=project_effort, **link_data)
         return project_effort

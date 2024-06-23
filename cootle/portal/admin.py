@@ -3,8 +3,8 @@ from django.contrib.auth.admin import UserAdmin
 from .models import User
 from django.db import transaction
 from django.core.exceptions import ValidationError
-from .models import Membership, Company, Invitation, Notification, DesignEffort, Mapping, Project, Purpose
-from .forms import PurposeAdminForm
+from .models import Membership, Company, Invitation, Notification, DesignEffort, Mapping, Project, Purpose, ProjectEffort, ProjectEffortLink
+from .forms import PurposeAdminForm, ProjectEffortAdminForm
 
 
 class CustomUserAdmin(UserAdmin):
@@ -26,6 +26,24 @@ class PurposeAdmin(admin.ModelAdmin):
     search_fields = ('title', 'user__username', 'project__name')
     filter_horizontal = ('desired_outcomes', 'design_efforts')
     form = PurposeAdminForm
+
+class ProjectEffortAdmin(admin.ModelAdmin):
+    list_display = ('user', 'project', 'design_effort', 'outcome', 'purpose', 'local_id')
+    search_fields = ('user__username', 'project__name', 'design_effort__title', 'outcome__title', 'purpose__title')
+    list_filter = ('project', 'design_effort', 'outcome', 'purpose')
+
+    # Custom form integration
+    form = ProjectEffortAdminForm
+
+    # Optionally, include inline editing for ProjectEffortLink
+    class ProjectEffortLinkInline(admin.TabularInline):
+        model = ProjectEffortLink
+        extra = 1  # Number of extra inline forms to display
+
+    inlines = [ProjectEffortLinkInline]
+
+# Register the ProjectEffort model with the ProjectEffortAdmin class
+admin.site.register(ProjectEffort, ProjectEffortAdmin)
 
 def assign_company(user, company, is_admin=False):
     # Check if the user is already an admin in any company
