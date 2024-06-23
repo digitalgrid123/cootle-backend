@@ -23,7 +23,7 @@ env = environ.Env(
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-BASE_URL = 'http://206.189.236.150'
+BASE_URL = 'http://143.198.122.74'
 
 # Read the .env file
 environ.Env.read_env(os.path.join(BASE_DIR, '.env'))
@@ -37,7 +37,7 @@ SECRET_KEY = env('SECRET_KEY')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = env('DEBUG')
 
-ALLOWED_HOSTS = ['206.189.236.150', '127.0.0.1','localhost']
+ALLOWED_HOSTS = ['143.198.122.74', '127.0.0.1','localhost']
 
 # Application definition
 
