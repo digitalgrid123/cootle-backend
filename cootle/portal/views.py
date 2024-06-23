@@ -1597,7 +1597,7 @@ class CreateProjectEffortView(generics.CreateAPIView):
         if not current_company_id:
             return Response({'status': 'No company selected'}, status=status.HTTP_400_BAD_REQUEST)
 
-        project_id = request.data.get('project')
+        project_id = request.data.get('project_id')
         if not project_id:
             return Response({'status': 'Project ID is required'}, status=status.HTTP_400_BAD_REQUEST)
 
