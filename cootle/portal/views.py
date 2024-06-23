@@ -20,8 +20,8 @@ from rest_framework.views import APIView
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
 from .permissions import IsAdminUser
-from .models import User, Company, Invitation, Membership, Notification, Category, DesignEffort, Mapping, Project, Purpose
-from .serializers import UserSerializer, UserAccessSerializer, UserVerificationSerializer, UserUpdateSerializer, CompanySerializer, InvitationSerializer, InvitationListSerializer, AcceptEmailInvitationSerializer, AcceptInvitationSerializer, NotificationSerializer, CategorySerializer, DesignEffortSerializer, MappingSerializer, ProjectSerializer, PurposeSerializer
+from .models import User, Company, Invitation, Membership, Notification, Category, DesignEffort, Mapping, Project, Purpose, ProjectEffort, ProjectEffortLink
+from .serializers import UserSerializer, UserAccessSerializer, UserVerificationSerializer, UserUpdateSerializer, CompanySerializer, InvitationSerializer, InvitationListSerializer, AcceptEmailInvitationSerializer, AcceptInvitationSerializer, NotificationSerializer, CategorySerializer, DesignEffortSerializer, MappingSerializer, ProjectSerializer, PurposeSerializer, ProjectEffortSerializer, ProjectEffortLinkSerializer
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 from .utils import send_verification_email, send_login_email, send_invitation_email, send_invitation_message
@@ -1470,7 +1470,7 @@ class CreatePurposeView(generics.CreateAPIView):
             # Save the purpose with the associated user and project
             purpose = serializer.save(user=user, project=project)
             
-            return Response({'status': 'Purpose created successfully', 'id': purpose.id}, status=status.HTTP_201_CREATED)
+            return Response({'status': 'Purpose created successfully', 'local_id': purpose.local_id}, status=status.HTTP_201_CREATED)
         except Company.DoesNotExist:
             return Response({'status': 'Company does not exist'}, status=status.HTTP_404_NOT_FOUND)
         except Project.DoesNotExist:
@@ -1484,7 +1484,7 @@ class EditPurposeView(generics.UpdateAPIView):
         operation_description="Edit a purpose",
         responses={200: "Purpose updated successfully."}
     )
-    def put(self, request, *args, **kwargs):
+    def patch(self, request, *args, **kwargs):
         user = request.user
         current_company_id = request.session.get('current_company_id')
 
@@ -1506,7 +1506,7 @@ class EditPurposeView(generics.UpdateAPIView):
             if not Membership.objects.filter(company_id=current_company_id, user=user, is_admin=True):
                 return Response({'status': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
             
-            serializer = self.get_serializer(purpose, data=request.data)
+            serializer = self.get_serializer(purpose, data=request.data, partial=True)
             serializer.is_valid(raise_exception=True)
             serializer.save()
             return Response({'status': 'Purpose updated successfully'}, status=status.HTTP_200_OK)
@@ -1579,3 +1579,198 @@ class PurposeListView(generics.ListAPIView):
         
         except Project.DoesNotExist:
             return Response({'status': 'Project does not exist or does not belong to the selected company'}, status=status.HTTP_404_NOT_FOUND)
+        
+class CreateProjectEffortView(generics.CreateAPIView):
+    queryset = ProjectEffort.objects.all()
+    serializer_class = ProjectEffortSerializer
+    permission_classes = [IsAuthenticated, IsAdminUser]
+
+    @swagger_auto_schema(
+        operation_description="Create a new project effort",
+        responses={201: "Project effort created successfully."}
+    )
+    def post(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        current_company_id = request.session.get('current_company_id')
+        if not current_company_id:
+            return Response({'status': 'No company selected'}, status=status.HTTP_400_BAD_REQUEST)
+
+        project_id = request.data.get('project')
+        if not project_id:
+            return Response({'status': 'Project ID is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            company = Company.objects.get(id=current_company_id)
+            project = Project.objects.get(id=project_id, company=company)
+            user = request.user
+
+            # Validate membership
+            if not Membership.objects.filter(company=company, user=user, is_admin=True).exists():
+                return Response({'status': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+
+            # Validate design_effort, outcome, and purpose
+            design_effort_id = request.data.get('design_effort')
+            outcome_id = request.data.get('outcome')
+            purpose_id = request.data.get('purpose')
+
+            design_effort = DesignEffort.objects.get(id=design_effort_id, company=company) if design_effort_id else None
+            outcome = Mapping.objects.get(id=outcome_id, company=company) if outcome_id else None
+            purpose = Purpose.objects.get(id=purpose_id, project=project)
+
+            # Save the project effort with the associated user and project
+            project_effort = serializer.save(user=user, project=project, design_effort=design_effort, outcome=outcome, purpose=purpose)
+
+            return Response({'status': 'Project effort created successfully', 'local_id': project_effort.local_id}, status=status.HTTP_201_CREATED)
+        
+        except Company.DoesNotExist:
+            return Response({'status': 'Company does not exist'}, status=status.HTTP_404_NOT_FOUND)
+        except Project.DoesNotExist:
+            return Response({'status': 'Project does not exist or does not belong to the selected company'}, status=status.HTTP_404_NOT_FOUND)
+        except DesignEffort.DoesNotExist:
+            return Response({'status': 'Design effort does not exist or does not belong to the selected company'}, status=status.HTTP_404_NOT_FOUND)
+        except Mapping.DoesNotExist:
+            return Response({'status': 'Outcome does not exist or does not belong to the selected company'}, status=status.HTTP_404_NOT_FOUND)
+        except Purpose.DoesNotExist:
+            return Response({'status': 'Purpose does not exist or does not belong to the selected project'}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({'status': f'An error occurred: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+class ListProjectEffortView(generics.ListAPIView):
+    serializer_class = ProjectEffortSerializer
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(
+        operation_description="List all project efforts for a specific project in the current company",
+        responses={200: "List of project efforts."}
+    )
+    def get(self, request, *args, **kwargs):
+        current_company_id = request.session.get('current_company_id')
+        user = request.user
+
+        if not current_company_id:
+            return Response({'status': 'No company selected'}, status=status.HTTP_400_BAD_REQUEST)
+
+        project_id = self.kwargs.get('project_id')
+        if not project_id:
+            return Response({'status': 'Project ID is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            company = Company.objects.get(id=current_company_id)
+            project = Project.objects.get(id=project_id, company=company)
+
+            # Check if the user is a member of the company
+            if not Membership.objects.filter(company=company, user=user).exists():
+                return Response({'status': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+
+            # Filter project efforts based on the specified project
+            project_efforts = ProjectEffort.objects.filter(project=project)
+            
+            serializer = self.get_serializer(project_efforts, many=True)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        
+        except Company.DoesNotExist:
+            return Response({'status': 'Company does not exist'}, status=status.HTTP_404_NOT_FOUND)
+        
+        except Project.DoesNotExist:
+            return Response({'status': 'Project does not exist or does not belong to the selected company'}, status=status.HTTP_404_NOT_FOUND)
+        
+class EditProjectEffortView(generics.UpdateAPIView):
+    serializer_class = ProjectEffortSerializer
+    permission_classes = [IsAuthenticated, IsAdminUser]
+
+    @swagger_auto_schema(
+        operation_description="Edit a project effort",
+        responses={200: "Project effort updated successfully."}
+    )
+    def patch(self, request, *args, **kwargs):
+        user = request.user
+        current_company_id = request.session.get('current_company_id')
+
+        if not current_company_id:
+            return Response({'status': 'No company selected'}, status=status.HTTP_400_BAD_REQUEST)
+
+        project_effort_id = self.kwargs.get('project_effort_id')
+        if not project_effort_id:
+            return Response({'status': 'Project effort ID is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            project_effort = ProjectEffort.objects.get(id=project_effort_id)
+            project_effort_company_id = project_effort.project.company.id
+
+            if str(project_effort_company_id) != str(current_company_id):
+                return Response({'status': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+
+            # Additional membership check
+            if not Membership.objects.filter(company_id=current_company_id, user=user, is_admin=True).exists():
+                return Response({'status': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+            
+            # Validate design_effort, outcome, and purpose if provided in request
+            design_effort_id = request.data.get('design_effort')
+            outcome_id = request.data.get('outcome')
+            purpose_id = request.data.get('purpose')
+
+            if design_effort_id:
+                design_effort = DesignEffort.objects.get(id=design_effort_id, company=current_company_id)
+                project_effort.design_effort = design_effort
+            
+            if outcome_id:
+                outcome = Mapping.objects.get(id=outcome_id, company=current_company_id)
+                project_effort.outcome = outcome
+            
+            if purpose_id:
+                purpose = Purpose.objects.get(id=purpose_id, project=project_effort.project)
+                project_effort.purpose = purpose
+
+            project_effort.save()
+
+            serializer = self.get_serializer(project_effort, data=request.data, partial=True)
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
+
+            return Response({'status': 'Project effort updated successfully'}, status=status.HTTP_200_OK)
+        
+        except ProjectEffort.DoesNotExist:
+            return Response({'status': 'Project effort does not exist'}, status=status.HTTP_404_NOT_FOUND)
+        except DesignEffort.DoesNotExist:
+            return Response({'status': 'Design effort does not exist or does not belong to the selected company'}, status=status.HTTP_404_NOT_FOUND)
+        except Mapping.DoesNotExist:
+            return Response({'status': 'Outcome does not exist or does not belong to the selected company'}, status=status.HTTP_404_NOT_FOUND)
+        except Purpose.DoesNotExist:
+            return Response({'status': 'Purpose does not exist or does not belong to the selected project'}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({'status': f'An error occurred: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class DestroyProjectEffortView(generics.DestroyAPIView):
+    permission_classes = [IsAuthenticated, IsAdminUser]
+
+    @swagger_auto_schema(
+        operation_description="Delete a project effort",
+        responses={200: "Project effort deleted successfully."}
+    )
+    def delete(self, request, *args, **kwargs):
+        project_effort_id = self.kwargs.get('project_effort_id')
+        current_company_id = request.session.get('current_company_id')
+        user = request.user
+
+        if not project_effort_id:
+            return Response({'status': 'Project effort ID is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            project_effort = ProjectEffort.objects.get(id=project_effort_id)
+            if project_effort.project.company.id != current_company_id:
+                return Response({'status': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+            
+            # Additional membership check
+            if not Membership.objects.filter(company_id=current_company_id, user=user, is_admin=True):
+                return Response({'status': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+            
+            project_effort.delete()
+            return Response({'status': 'Project effort deleted successfully'}, status=status.HTTP_200_OK)
+        
+        except ProjectEffort.DoesNotExist:
+            return Response({'status': 'Project effort does not exist'}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({'status': f'An error occurred: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

@@ -3,7 +3,7 @@ from django.urls import path, re_path
 from rest_framework import permissions
 from drf_yasg.views import get_schema_view
 from drf_yasg import openapi
-from portal.views import csrf_token, DefaultMappingsView, ResetMappingDataView,  DashboardInfoView, UserRegistrationView, UserVerificationView, UserLoginView, UserLoginVerificationView, UserUpdateView, UserInfoView, CreateCompanyView, SetCurrentCompanyView, EditCompanyView, CompanyListView, InviteUserView, AcceptEmailInvitationView, AcceptInvitationView, RejectInvitationView, InvitationListView, ListInvitationsView, RemoveMemberView, NotificationListView, MarkReadNotifications, RemoveNotificationView, RemoveAllNotificationsView, CreateCategoryView, CategoryListView, CategoryDetailView, RemoveCategoryView, DesignEffortListView, CreateDesignEffortView, UpdateDesignEffortView, DeleteDesignEffortView, CreateMappingView, UpdateMappingView, AddDesignEffortViewMapping, RemoveDesignEffortViewMapping, MappingListView, RetrieveSpecificDesignEffortsView, RemoveMappingView, CreateProjectView, ProjectListView, CreatePurposeView, PurposeListView, EditPurposeView, RemovePurposeView
+from portal.views import csrf_token, DefaultMappingsView, ResetMappingDataView,  DashboardInfoView, UserRegistrationView, UserVerificationView, UserLoginView, UserLoginVerificationView, UserUpdateView, UserInfoView, CreateCompanyView, SetCurrentCompanyView, EditCompanyView, CompanyListView, InviteUserView, AcceptEmailInvitationView, AcceptInvitationView, RejectInvitationView, InvitationListView, ListInvitationsView, RemoveMemberView, NotificationListView, MarkReadNotifications, RemoveNotificationView, RemoveAllNotificationsView, CreateCategoryView, CategoryListView, CategoryDetailView, RemoveCategoryView, DesignEffortListView, CreateDesignEffortView, UpdateDesignEffortView, DeleteDesignEffortView, CreateMappingView, UpdateMappingView, AddDesignEffortViewMapping, RemoveDesignEffortViewMapping, MappingListView, RetrieveSpecificDesignEffortsView, RemoveMappingView, CreateProjectView, ProjectListView, CreatePurposeView, PurposeListView, EditPurposeView, RemovePurposeView, CreateProjectEffortView, ListProjectEffortView, EditProjectEffortView, DestroyProjectEffortView
 from rest_framework_simplejwt.views import (
       TokenObtainPairView,
       TokenRefreshView,
@@ -71,6 +71,10 @@ urlpatterns = [
    path('api/projects/<int:project_id>/purposes/', PurposeListView.as_view(), name='purpose-list'),
    path('api/purpose/edit/', EditPurposeView.as_view(), name='edit-purpose'),
    path('api/purpose/remove/', RemovePurposeView.as_view(), name='remove-purpose'),
+   path('api/project-effort/create/', CreateProjectEffortView.as_view(), name='create-project-effort'),
+   path('api/projects/<int:project_id>/efforts/', ListProjectEffortView.as_view(), name='project-efforts'),
+   path('api/project-effort/edit/', EditProjectEffortView.as_view(), name='edit-project-effort'),
+   path('api/project-effort/remove/', DestroyProjectEffortView.as_view(), name='delete-project-effort'),
        # ... your other urls
    path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
    path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),

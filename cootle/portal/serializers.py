@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import User, Company, Invitation, Notification, Category, DesignEffort, Mapping, Project, Purpose
+from .models import User, Company, Invitation, Notification, Category, DesignEffort, Mapping, Project, Purpose, ProjectEffort, ProjectEffortLink
 from django.conf import settings
 
 class UserSerializer(serializers.ModelSerializer):
@@ -191,7 +191,7 @@ class PurposeSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Purpose
-        fields = ['id', 'title', 'description', 'project', 'created_at', 'updated_at', 'desired_outcomes', 'design_efforts']
+        fields = ['id', 'local_id', 'title', 'description', 'project', 'created_at', 'updated_at', 'desired_outcomes', 'design_efforts']
         extra_kwargs = {
             'title': {'required': True},
             'description': {'required': True}
@@ -219,4 +219,41 @@ class PurposeSerializer(serializers.ModelSerializer):
             instance.design_efforts.set(design_efforts)
         
         instance.save()
+        return instance
+
+class ProjectEffortLinkSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ProjectEffortLink
+        fields = ['id', 'link']
+
+class ProjectEffortSerializer(serializers.ModelSerializer):
+    desired_outcomes = serializers.PrimaryKeyRelatedField(
+        queryset=Mapping.objects.filter(type='OUT'), required=False
+    )
+    links = ProjectEffortLinkSerializer(many=True)
+
+    class Meta:
+        model = ProjectEffort
+        fields = ['id', 'user', 'project', 'created_at', 'updated_at', 'design_effort', 'outcome', 'purpose', 'local_id', 'links']
+        read_only_fields = ['id', 'local_id', 'created_at', 'updated_at']
+
+    def create(self, validated_data):
+        links_data = validated_data.pop('links', [])
+        project_effort = ProjectEffort.objects.create(**validated_data)
+        for link_data in links_data:
+            ProjectEffortLink.objects.create(project_effort=project_effort, **link_data)
+        return project_effort
+
+    def update(self, instance, validated_data):
+        links_data = validated_data.pop('links', [])
+        instance.design_effort = validated_data.get('design_effort', instance.design_effort)
+        instance.outcome = validated_data.get('outcome', instance.outcome)
+        instance.purpose = validated_data.get('purpose', instance.purpose)
+        instance.save()
+
+        # Update links
+        instance.links.all().delete()
+        for link_data in links_data:
+            ProjectEffortLink.objects.create(project_effort=instance, **link_data)
+
         return instance

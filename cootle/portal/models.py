@@ -1,4 +1,4 @@
-from django.db import models
+from django.db import models, transaction
 from django.contrib.auth.models import AbstractUser
 from django.utils import timezone
 import random
@@ -128,6 +128,46 @@ class Purpose(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     desired_outcomes = models.ManyToManyField(Mapping, blank=True)
     design_efforts = models.ManyToManyField(DesignEffort, blank=True)
+    local_id = models.PositiveIntegerField(editable=False)
 
     def __str__(self):
         return self.title
+    
+    @transaction.atomic
+    def save(self, *args, **kwargs):
+        if not self.local_id:
+            last_purpose = Purpose.objects.select_for_update().filter(project=self.project).order_by('local_id').last()
+            if last_purpose:
+                self.local_id = last_purpose.local_id + 1
+            else:
+                self.local_id = 1
+        super(Purpose, self).save(*args, **kwargs)
+
+class ProjectEffort(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    project = models.ForeignKey(Project, on_delete=models.CASCADE)
+    design_effort = models.ForeignKey(DesignEffort, on_delete=models.CASCADE)
+    outcome = models.ForeignKey(Mapping, on_delete=models.CASCADE)
+    purpose = models.ForeignKey(Purpose, on_delete=models.CASCADE)
+    local_id = models.PositiveIntegerField(editable=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def save(self, *args, **kwargs):
+        if not self.local_id:
+            last_effort = ProjectEffort.objects.filter(project=self.project).order_by('local_id').last()
+            if last_effort:
+                self.local_id = last_effort.local_id + 1
+            else:
+                self.local_id = 1
+        super(ProjectEffort, self).save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.project.name} - {self.design_effort.title}"
+    
+class ProjectEffortLink(models.Model):
+    project_effort = models.ForeignKey(ProjectEffort, on_delete=models.CASCADE, related_name='links')
+    link = models.TextField()
+
+    def __str__(self):
+        return f"Link for {self.project_effort}"
