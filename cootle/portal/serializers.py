@@ -227,7 +227,7 @@ class ProjectEffortLinkSerializer(serializers.ModelSerializer):
         fields = ['id', 'link']
 
 class ProjectEffortSerializer(serializers.ModelSerializer):
-    desired_outcomes = serializers.PrimaryKeyRelatedField(
+    outcome = serializers.PrimaryKeyRelatedField(
         queryset=Mapping.objects.filter(type='OUT'), required=False
     )
     links = ProjectEffortLinkSerializer(many=True)
