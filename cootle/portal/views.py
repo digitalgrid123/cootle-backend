@@ -1497,7 +1497,7 @@ class EditPurposeView(generics.UpdateAPIView):
 
         try:
             purpose = Purpose.objects.get(id=purpose_id)
-            purpose_company_id = purpose.company.id
+            purpose_company_id = purpose.project.company.id
 
             if str(purpose_company_id) != str(current_company_id):
                 return Response({'status': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
