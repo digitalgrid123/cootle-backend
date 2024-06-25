@@ -117,47 +117,34 @@ class CategorySerializer(serializers.ModelSerializer):
 class DesignEffortSerializer(serializers.ModelSerializer):
     category = serializers.SlugRelatedField(
         queryset=Category.objects.all(),
-        slug_field='name'
+        slug_field='name',
+        required=False
+    )
+    category_id = serializers.PrimaryKeyRelatedField(
+        queryset=Category.objects.all(),
+        write_only=True,  # Ensures this field is not included in serialized output
+        required=True
     )
 
     class Meta:
         model = DesignEffort
-        fields = ['id', 'title', 'description', 'created_at', 'updated_at', 'category']
+        fields = ['id', 'title', 'description', 'created_at', 'updated_at', 'category', 'category_id']
+        read_only_fields = ['category']
         extra_kwargs = {
             'title': {'required': True},
             'description': {'required': True},
-            'category': {'required': True}
+            'category_id': {'required': True},  # Allow category to be optional in input
         }
 
-    def validate(self, data):
-        """
-        Validate that the category slug is unique within the company context.
-        """
-        request = self.context.get('request')
-        current_company_id = request.session.get('current_company_id')
-        if not current_company_id:
-            raise serializers.ValidationError("No company selected in session.")
-
-        try:
-            category = Category.objects.get(name=data['category'].name, company_id=current_company_id)
-            data['category'] = category
-        except Category.DoesNotExist:
-            raise serializers.ValidationError("Category does not exist.")
-        except Category.MultipleObjectsReturned:
-            raise serializers.ValidationError("Multiple categories found with the same name within the same company. This is unexpected.")
-
-        return data
-
-
     def create(self, validated_data):
-        if not validated_data.get('title') or not validated_data.get('description') or not validated_data.get('category'):
-            raise serializers.ValidationError("All fields are required for creating a DesignEffort.")
-        return super().create(validated_data)
+        category_id = validated_data.pop('category_id')
+        category = Category.objects.get(id=category_id)
+        design_effort = DesignEffort.objects.create(category=category, **validated_data)
+        return design_effort
 
     def update(self, instance, validated_data):
         instance.title = validated_data.get('title', instance.title)
         instance.description = validated_data.get('description', instance.description)
-        instance.category = validated_data.get('category', instance.category)
         instance.save()
         return instance
 

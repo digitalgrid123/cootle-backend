@@ -1055,7 +1055,6 @@ class DesignEffortListView(generics.ListAPIView):
         except Company.DoesNotExist:
             return Response({'status': 'Company does not exist'}, status=status.HTTP_404_NOT_FOUND)
 
-
 class CreateDesignEffortView(generics.CreateAPIView):
     serializer_class = DesignEffortSerializer
     permission_classes = [IsAuthenticated]
@@ -1079,8 +1078,10 @@ class CreateDesignEffortView(generics.CreateAPIView):
             if not Membership.objects.filter(company=company, user=request.user, is_admin=True).exists():
                 return Response({'status': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
 
-            design_effort = serializer.save(company=company)
-            return Response({'status': 'Design effort created successfully', 'id': design_effort.id}, status=status.HTTP_201_CREATED)
+            # Save the design effort, passing company as context and category_id
+            serializer.save(company=company, category_id=request.data.get('category_id'))
+
+            return Response({'status': 'Design effort created successfully'}, status=status.HTTP_201_CREATED)
 
         except Company.DoesNotExist:
             return Response({'status': 'Company does not exist'}, status=status.HTTP_404_NOT_FOUND)
