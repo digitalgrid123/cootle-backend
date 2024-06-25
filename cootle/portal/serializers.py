@@ -129,15 +129,35 @@ class DesignEffortSerializer(serializers.ModelSerializer):
             'category': {'required': True}
         }
 
+    def validate(self, data):
+        """
+        Validate that the category slug is unique within the company context.
+        """
+        request = self.context.get('request')
+        current_company_id = request.session.get('current_company_id')
+        if not current_company_id:
+            raise serializers.ValidationError("No company selected in session.")
+
+        try:
+            category = Category.objects.get(name=data['category'].name, company_id=current_company_id)
+            data['category'] = category
+        except Category.DoesNotExist:
+            raise serializers.ValidationError("Category does not exist.")
+        except Category.MultipleObjectsReturned:
+            raise serializers.ValidationError("Multiple categories found with the same name within the same company. This is unexpected.")
+
+        return data
+
+
     def create(self, validated_data):
         if not validated_data.get('title') or not validated_data.get('description') or not validated_data.get('category'):
             raise serializers.ValidationError("All fields are required for creating a DesignEffort.")
         return super().create(validated_data)
 
     def update(self, instance, validated_data):
-        instance.title = instance.title
+        instance.title = validated_data.get('title', instance.title)
         instance.description = validated_data.get('description', instance.description)
-        instance.category = instance.category
+        instance.category = validated_data.get('category', instance.category)
         instance.save()
         return instance
 
