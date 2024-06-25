@@ -1065,7 +1065,7 @@ class CreateDesignEffortView(generics.CreateAPIView):
         responses={201: "Design effort created successfully."}
     )
     def post(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
+        serializer = self.get_serializer(data=request.data, context={'request': request})
         serializer.is_valid(raise_exception=True)
 
         current_company_id = request.session.get('current_company_id')
