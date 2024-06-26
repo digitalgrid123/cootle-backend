@@ -239,11 +239,12 @@ class ProjectEffortSerializer(serializers.ModelSerializer):
     )
     links = ProjectEffortLinkSerializer(many=True, required=False)
     project = serializers.PrimaryKeyRelatedField(queryset=Project.objects.all(), required=False)
-    
+    checked_by = serializers.PrimaryKeyRelatedField(queryset=User.objects.all(), required=False)
+    checked_at = serializers.DateTimeField(required=False)
 
     class Meta:
         model = ProjectEffort
-        fields = ['id', 'project', 'created_at', 'updated_at', 'design_effort', 'outcome', 'purpose', 'local_id', 'links']
+        fields = ['id', 'project', 'created_at', 'updated_at', 'design_effort', 'outcome', 'purpose', 'local_id', 'links', 'value_status', 'checked_by', 'checked_at']
         read_only_fields = ['id', 'local_id', 'created_at', 'updated_at']
 
     def create(self, validated_data):
@@ -256,15 +257,19 @@ class ProjectEffortSerializer(serializers.ModelSerializer):
         return project_effort
 
     def update(self, instance, validated_data):
-        links_data = validated_data.pop('links', [])
+        links_data = validated_data.pop('links', None)
         instance.design_effort = validated_data.get('design_effort', instance.design_effort)
         instance.outcome = validated_data.get('outcome', instance.outcome)
         instance.purpose = validated_data.get('purpose', instance.purpose)
+        instance.value_status = validated_data.get('value_status', instance.value_status)
+        instance.checked_by = validated_data.get('checked_by', instance.checked_by)
+        instance.checked_at = validated_data.get('checked_at', instance.checked_at)
         instance.save()
 
-        # Update links
-        instance.links.all().delete()
-        for link_data in links_data:
-            ProjectEffortLink.objects.create(project_effort=instance, **link_data)
+        # Update links if provided
+        if links_data is not None:
+            instance.links.all().delete()
+            for link_data in links_data:
+                ProjectEffortLink.objects.create(project_effort=instance, **link_data)
 
         return instance
