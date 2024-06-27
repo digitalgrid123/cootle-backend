@@ -144,7 +144,14 @@ class Purpose(models.Model):
         super(Purpose, self).save(*args, **kwargs)
 
 class ProjectEffort(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    class ValueStatus(models.TextChoices):
+        YET_TO_BE_CHECKED = 'YBC', 'Yet to be checked',
+        UNCHECKED = 'UCH', 'Unchecked',
+        UNPLANNED_ACTIVITY = 'UPA', 'Unplanned Activity',
+        REALISED = 'REA', 'Realised',
+        VALUE_UNREALISED = 'VUR', 'Value Unrealised',        
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='created_project_efforts')
     project = models.ForeignKey(Project, on_delete=models.CASCADE)
     design_effort = models.ForeignKey(DesignEffort, on_delete=models.CASCADE)
     outcome = models.ForeignKey(Mapping, on_delete=models.CASCADE)
@@ -152,6 +159,9 @@ class ProjectEffort(models.Model):
     local_id = models.PositiveIntegerField(editable=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    value_status = models.CharField(max_length=3, choices=ValueStatus.choices, default=ValueStatus.YET_TO_BE_CHECKED)
+    checked_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='checked_project_efforts', null=True, blank=True)
+    checked_at = models.DateTimeField(auto_now=True)
 
     def save(self, *args, **kwargs):
         if not self.local_id:
