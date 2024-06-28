@@ -1746,7 +1746,7 @@ class EditProjectEffortView(generics.UpdateAPIView):
 
 class UpdateValueStatusView(generics.UpdateAPIView):
     serializer_class = ProjectEffortSerializer
-    permission_classes = [IsAuthenticated, IsAdminUser]
+    permission_classes = [IsAuthenticated]
 
     @swagger_auto_schema(
         operation_description="Update the value status of a project effort",
@@ -1771,11 +1771,20 @@ class UpdateValueStatusView(generics.UpdateAPIView):
                 return Response({'status': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
 
             # Additional membership check
-            if not Membership.objects.filter(company_id=current_company_id, user=user, is_admin=True).exists():
+            if not Membership.objects.filter(company_id=current_company_id, user=user).exists():
                 return Response({'status': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
 
+            if project_effort.user == user:
+                return Response({'status': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+            
+            data = {
+                'value_status': request.data.get('value_status'),
+                'checked_by':user.id,
+                'checked_at':datetime.now()
+            }
+
             serializer = self.get_serializer(
-                project_effort, data=request.data, partial=True)
+                project_effort, data=data, partial=True)
             serializer.is_valid(raise_exception=True)
             serializer.save()
             return Response({'status': 'Value status updated successfully'}, status=status.HTTP_200_OK)
@@ -1783,59 +1792,6 @@ class UpdateValueStatusView(generics.UpdateAPIView):
             return Response({'status': 'Project effort does not exist'}, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
             return Response({'status': f'An error occurred: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-class UpdateCheckedByEffortView(generics.UpdateAPIView):
-    serializer_class = ProjectEffortSerializer
-    permission_classes = [IsAuthenticated, IsAdminUser]
-
-    @swagger_auto_schema(
-        operation_description="Update the checked by status of a project effort",
-        responses={200: "Checked by status updated successfully."}
-    )
-    def patch(self, request, *args, **kwargs):
-        user = request.user
-        current_company_id = request.session.get('current_company_id')
-
-        if not current_company_id:
-            return Response({'status': 'No company selected'}, status=status.HTTP_400_BAD_REQUEST)
-
-        project_effort_id = self.kwargs.get('project_effort_id')
-        if not project_effort_id:
-            return Response({'status': 'Project effort ID is required'}, status=status.HTTP_400_BAD_REQUEST)
-
-        try:
-            project_effort = ProjectEffort.objects.get(id=project_effort_id)
-            project_effort_company_id = project_effort.project.company.id
-
-            if str(project_effort_company_id) != str(current_company_id):
-                return Response({'status': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
-
-            # Additional membership check
-            if not Membership.objects.filter(company_id=current_company_id, user=user, is_admin=True):
-                return Response({'status': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
-            
-            checked_by_id = request.data.get('checked_by')
-            if checked_by_id is None:
-                return Response({'status': 'Checked by ID is required'}, status=status.HTTP_400_BAD_REQUEST)
-
-            # Verify if the checked_by user exists in the company
-            if not Membership.objects.filter(company_id=current_company_id, user_id=checked_by_id).exists():
-                return Response({'status': 'Checked by user does not exist in the company'}, status=status.HTTP_404_NOT_FOUND)
-
-            # Assign checked_at timestamp if checked_by is being updated
-            if 'checked_by' in request.data:
-                request.data['checked_at'] = timezone.now()
-
-            serializer = self.get_serializer(
-                project_effort, data=request.data, partial=True)
-            serializer.is_valid(raise_exception=True)
-            serializer.save()
-            return Response({'status': 'Checked by status updated successfully'}, status=status.HTTP_200_OK)
-        except ProjectEffort.DoesNotExist:
-            return Response({'status': 'Project effort does not exist'}, status=status.HTTP_404_NOT_FOUND)
-        except Exception as e:
-            return Response({'status': f'An error occurred: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
 
 class DestroyProjectEffortView(generics.DestroyAPIView):
     permission_classes = [IsAuthenticated, IsAdminUser]
