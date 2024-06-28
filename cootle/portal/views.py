@@ -5,8 +5,9 @@ from django.contrib.auth import get_user_model
 from django.core.mail import send_mail
 from django.utils.crypto import get_random_string
 from django.utils import timezone
+from django.utils.dateparse import parse_date
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import Q, Count
 from django.http import HttpResponse, JsonResponse
 from django.conf import settings
 from django.views import View
@@ -2187,3 +2188,73 @@ class InsightsLatestObjectivesView(generics.ListAPIView):
         except Exception as e:
             return Response({'status': f'An error occurred: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+
+class InsightsEffortsOverTimeByCategoryView(generics.ListAPIView):
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(
+        operation_description="Get the number of project efforts over time by category",
+        responses={200: "Line graph data of project efforts over time by category."}
+    )
+    def get(self, request, *args, **kwargs):
+        current_company_id = request.session.get('current_company_id')
+        user = request.user
+        start_date = request.query_params.get('start_date')
+        end_date = request.query_params.get('end_date')
+
+        if not current_company_id:
+            return Response({'status': 'No company selected'}, status=status.HTTP_400_BAD_REQUEST)
+
+        project_id = self.kwargs.get('project_id')
+        if not project_id:
+            return Response({'status': 'Project ID is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            company = Company.objects.get(id=current_company_id)
+            project = Project.objects.get(id=project_id, company=company)
+
+            # Check if the user is a member of the company
+            if not Membership.objects.filter(company=company, user=user).exists():
+                return Response({'status': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+
+            # Filter project efforts based on the specified project and value status
+            project_efforts = ProjectEffort.objects.filter(project=project).exclude(value_status='YBC')
+
+            # Apply date filtering if provided
+            if start_date and end_date:
+                try:
+                    start_date = parse_date(start_date)
+                    end_date = parse_date(end_date)
+                    project_efforts = project_efforts.filter(checked_at__gte=start_date, checked_at__lte=end_date)
+                except ValueError:
+                    return Response({'status': 'Invalid date format'}, status=status.HTTP_400_BAD_REQUEST)
+
+            # Aggregate efforts count by project category and date
+            efforts_over_time = project_efforts.values('checked_at', 'design_effort__category__name') \
+                .annotate(count=Count('id'))
+
+            # Prepare data for the line graph
+            line_graph_data = {}
+            for entry in efforts_over_time:
+                checked_at = entry['checked_at'].strftime('%Y-%m-%d')
+                category_name = entry['design_effort__category__name']
+                count = entry['count']
+
+                if category_name not in line_graph_data:
+                    line_graph_data[category_name] = []
+
+                line_graph_data[category_name].append({
+                    'date': checked_at,
+                    'count': count
+                })
+
+            return Response(line_graph_data, status=status.HTTP_200_OK)
+
+        except Company.DoesNotExist:
+            return Response({'status': 'Company does not exist'}, status=status.HTTP_404_NOT_FOUND)
+        
+        except Project.DoesNotExist:
+            return Response({'status': 'Project does not exist or does not belong to the selected company'}, status=status.HTTP_404_NOT_FOUND)
+
+        except Exception as e:
+            return Response({'status': f'An error occurred: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
