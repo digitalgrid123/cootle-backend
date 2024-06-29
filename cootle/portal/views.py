@@ -5,8 +5,9 @@ from django.contrib.auth import get_user_model
 from django.core.mail import send_mail
 from django.utils.crypto import get_random_string
 from django.utils import timezone
+from django.utils.dateparse import parse_date
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import Q, Count
 from django.http import HttpResponse, JsonResponse
 from django.conf import settings
 from django.views import View
@@ -30,6 +31,7 @@ from django.db.models.signals import post_save
 from django.dispatch import receiver
 from .utils import load_default_mappings
 from datetime import datetime
+from collections import Counter
 
 # Create your views here.
 
@@ -1746,7 +1748,7 @@ class EditProjectEffortView(generics.UpdateAPIView):
 
 class UpdateValueStatusView(generics.UpdateAPIView):
     serializer_class = ProjectEffortSerializer
-    permission_classes = [IsAuthenticated, IsAdminUser]
+    permission_classes = [IsAuthenticated]
 
     @swagger_auto_schema(
         operation_description="Update the value status of a project effort",
@@ -1771,11 +1773,20 @@ class UpdateValueStatusView(generics.UpdateAPIView):
                 return Response({'status': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
 
             # Additional membership check
-            if not Membership.objects.filter(company_id=current_company_id, user=user, is_admin=True).exists():
+            if not Membership.objects.filter(company_id=current_company_id, user=user).exists():
                 return Response({'status': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
 
+            if project_effort.user == user:
+                return Response({'status': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+            
+            data = {
+                'value_status': request.data.get('value_status'),
+                'checked_by':user.id,
+                'checked_at':datetime.now()
+            }
+
             serializer = self.get_serializer(
-                project_effort, data=request.data, partial=True)
+                project_effort, data=data, partial=True)
             serializer.is_valid(raise_exception=True)
             serializer.save()
             return Response({'status': 'Value status updated successfully'}, status=status.HTTP_200_OK)
@@ -1783,59 +1794,6 @@ class UpdateValueStatusView(generics.UpdateAPIView):
             return Response({'status': 'Project effort does not exist'}, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
             return Response({'status': f'An error occurred: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-class UpdateCheckedByEffortView(generics.UpdateAPIView):
-    serializer_class = ProjectEffortSerializer
-    permission_classes = [IsAuthenticated, IsAdminUser]
-
-    @swagger_auto_schema(
-        operation_description="Update the checked by status of a project effort",
-        responses={200: "Checked by status updated successfully."}
-    )
-    def patch(self, request, *args, **kwargs):
-        user = request.user
-        current_company_id = request.session.get('current_company_id')
-
-        if not current_company_id:
-            return Response({'status': 'No company selected'}, status=status.HTTP_400_BAD_REQUEST)
-
-        project_effort_id = self.kwargs.get('project_effort_id')
-        if not project_effort_id:
-            return Response({'status': 'Project effort ID is required'}, status=status.HTTP_400_BAD_REQUEST)
-
-        try:
-            project_effort = ProjectEffort.objects.get(id=project_effort_id)
-            project_effort_company_id = project_effort.project.company.id
-
-            if str(project_effort_company_id) != str(current_company_id):
-                return Response({'status': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
-
-            # Additional membership check
-            if not Membership.objects.filter(company_id=current_company_id, user=user, is_admin=True):
-                return Response({'status': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
-            
-            checked_by_id = request.data.get('checked_by')
-            if checked_by_id is None:
-                return Response({'status': 'Checked by ID is required'}, status=status.HTTP_400_BAD_REQUEST)
-
-            # Verify if the checked_by user exists in the company
-            if not Membership.objects.filter(company_id=current_company_id, user_id=checked_by_id).exists():
-                return Response({'status': 'Checked by user does not exist in the company'}, status=status.HTTP_404_NOT_FOUND)
-
-            # Assign checked_at timestamp if checked_by is being updated
-            if 'checked_by' in request.data:
-                request.data['checked_at'] = timezone.now()
-
-            serializer = self.get_serializer(
-                project_effort, data=request.data, partial=True)
-            serializer.is_valid(raise_exception=True)
-            serializer.save()
-            return Response({'status': 'Checked by status updated successfully'}, status=status.HTTP_200_OK)
-        except ProjectEffort.DoesNotExist:
-            return Response({'status': 'Project effort does not exist'}, status=status.HTTP_404_NOT_FOUND)
-        except Exception as e:
-            return Response({'status': f'An error occurred: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
 
 class DestroyProjectEffortView(generics.DestroyAPIView):
     permission_classes = [IsAuthenticated, IsAdminUser]
@@ -1871,7 +1829,6 @@ class DestroyProjectEffortView(generics.DestroyAPIView):
 
 
 #Insights Views
-
 class InsightsValueRatioView(generics.ListAPIView):
     permission_classes = [IsAuthenticated]
 
@@ -1912,18 +1869,22 @@ class InsightsValueRatioView(generics.ListAPIView):
                 except ValueError:
                     return Response({'status': 'Invalid date format'}, status=status.HTTP_400_BAD_REQUEST)
 
+            # Get all design effort IDs and their counts
+            design_effort_ids = list(project_efforts.values_list('design_effort_id', flat=True))
+            design_effort_counts = Counter(design_effort_ids)
 
-            # Fetch design efforts associated with project efforts
-            design_efforts = DesignEffort.objects.filter(id__in=project_efforts.values_list('design_effort_id', flat=True))
+            # Retrieve unique design efforts
+            unique_design_efforts = DesignEffort.objects.filter(id__in=design_effort_counts.keys())
 
             # Initialize dictionary to hold value counts
-            value_counts = {value.name: 0 for value in Mapping.objects.filter(company=company, type='VAL')}
+            value_counts = {value.title: 0 for value in Mapping.objects.filter(company=company, type='VAL')}
 
             # Count values based on design efforts' associations with Mapping objects
-            for design_effort in design_efforts:
+            for design_effort in unique_design_efforts:
+                count = design_effort_counts[design_effort.id]
                 for value in Mapping.objects.filter(design_efforts=design_effort, type='VAL'):
                     if value.title in value_counts:
-                        value_counts[value.title] += 1
+                        value_counts[value.title] += count
 
             # Calculate value ratios based on total realized efforts
             total_realized_efforts = project_efforts.count()
@@ -1943,13 +1904,16 @@ class InsightsValueRatioView(generics.ListAPIView):
 
         except Company.DoesNotExist:
             return Response({'status': 'Company does not exist'}, status=status.HTTP_404_NOT_FOUND)
-        
+
         except Project.DoesNotExist:
             return Response({'status': 'Project does not exist or does not belong to the selected company'}, status=status.HTTP_404_NOT_FOUND)
 
+        except Exception as e:
+            return Response({'status': f'An error occurred: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 
 class InsightsObjectiveRatioView(generics.ListAPIView):
-    authentication_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated]
 
     @swagger_auto_schema(
         operation_description="Get the objective ratios of project efforts",
@@ -1988,19 +1952,24 @@ class InsightsObjectiveRatioView(generics.ListAPIView):
                 except ValueError:
                     return Response({'status': 'Invalid date format'}, status=status.HTTP_400_BAD_REQUEST)
 
-            # Fetch design efforts associated with project efforts
-            design_efforts = DesignEffort.objects.filter(id__in=project_efforts.values_list('design_effort_id', flat=True))
+            # Get all design effort IDs and their counts
+            design_effort_ids = list(project_efforts.values_list('design_effort_id', flat=True))
+            design_effort_counts = Counter(design_effort_ids)
 
-            # Initialize dictionary to hold objective counts
-            objective_counts = {objective.name: 0 for objective in Mapping.objects.filter(company=company, type='OBJ')}
+            # Retrieve unique design efforts
+            unique_design_efforts = DesignEffort.objects.filter(id__in=design_effort_counts.keys())
 
-            # Count objectives based on design efforts' associations with Mapping objects
-            for design_effort in design_efforts:
+            # Initialize dictionary to hold value counts
+            objective_counts = {objective.title: 0 for objective in Mapping.objects.filter(company=company, type='OBJ')}
+
+            # Count values based on design efforts' associations with Mapping objects
+            for design_effort in unique_design_efforts:
+                count = design_effort_counts[design_effort.id]
                 for objective in Mapping.objects.filter(design_efforts=design_effort, type='OBJ'):
                     if objective.title in objective_counts:
-                        objective_counts[objective.title] += 1
+                        objective_counts[objective.title] += count
 
-            # Calculate objective ratios based on total realized efforts
+            # Calculate value ratios based on total realized efforts
             total_realized_efforts = project_efforts.count()
             objective_ratios = []
 
@@ -2124,23 +2093,28 @@ class InsightsLatestValuesView(generics.ListAPIView):
                 except ValueError:
                     return Response({'status': 'Invalid date format'}, status=status.HTTP_400_BAD_REQUEST)
             
-            project_efforts = project_efforts.order_by('-checked_at')[:5]
+            # Filter out project efforts without associated values
+            project_efforts_with_values = [
+                effort for effort in project_efforts 
+                if Mapping.objects.filter(design_efforts=effort.design_effort_id, type='VAL').exists()
+            ]
 
-            # Fetch design efforts associated with project efforts
-            design_efforts = DesignEffort.objects.filter(id__in=project_efforts.values_list('design_effort_id', flat=True))
+            # Limit the project efforts to the latest 5
+            latest_project_efforts = sorted(project_efforts_with_values, key=lambda x: x.checked_at, reverse=True)[:5]
 
             # Initialize dictionary to hold latest values
             latest_values = {}
 
             # Serialize project efforts
-            project_efforts_data = ProjectEffortSerializer(project_efforts, many=True).data
+            project_efforts_data = ProjectEffortSerializer(latest_project_efforts, many=True).data
 
             # Get the latest value of each project effort
             for project_effort_data in project_efforts_data:
                 project_effort_id = project_effort_data['id']
-                project_effort = project_efforts.get(id=project_effort_id)
-                design_effort = design_efforts.get(id=project_effort.design_effort_id)
+                project_effort = ProjectEffort.objects.get(id=project_effort_id)
+                design_effort = DesignEffort.objects.get(id=project_effort.design_effort_id)
                 values = Mapping.objects.filter(design_efforts=design_effort, type='VAL')
+                
                 values_data = [value.title for value in values]
                 latest_values[project_effort_id] = {
                     'project_effort': project_effort_data,
@@ -2198,23 +2172,28 @@ class InsightsLatestObjectivesView(generics.ListAPIView):
                 except ValueError:
                     return Response({'status': 'Invalid date format'}, status=status.HTTP_400_BAD_REQUEST)
             
-            project_efforts = project_efforts.order_by('-checked_at')[:5]
+            # Filter out project efforts without associated objectives
+            project_efforts_with_objectives = [
+                effort for effort in project_efforts 
+                if Mapping.objects.filter(design_efforts=effort.design_effort_id, type='OBJ').exists()
+            ]
 
-            # Fetch design efforts associated with project efforts
-            design_efforts = DesignEffort.objects.filter(id__in=project_efforts.values_list('design_effort_id', flat=True))
+            # Limit the project efforts to the latest 5
+            latest_project_efforts = sorted(project_efforts_with_objectives, key=lambda x: x.checked_at, reverse=True)[:5]
 
             # Initialize dictionary to hold latest objectives
             latest_objectives = {}
 
             # Serialize project efforts
-            project_efforts_data = ProjectEffortSerializer(project_efforts, many=True).data
+            project_efforts_data = ProjectEffortSerializer(latest_project_efforts, many=True).data
 
             # Get the latest objectives of each project effort
             for project_effort_data in project_efforts_data:
                 project_effort_id = project_effort_data['id']
-                project_effort = project_efforts.get(id=project_effort_id)
-                design_effort = design_efforts.get(id=project_effort.design_effort_id)
+                project_effort = ProjectEffort.objects.get(id=project_effort_id)
+                design_effort = DesignEffort.objects.get(id=project_effort.design_effort_id)
                 objectives = Mapping.objects.filter(design_efforts=design_effort, type='OBJ')
+                
                 objectives_data = [objective.title for objective in objectives]
                 latest_objectives[project_effort_id] = {
                     'project_effort': project_effort_data,
@@ -2231,3 +2210,73 @@ class InsightsLatestObjectivesView(generics.ListAPIView):
         except Exception as e:
             return Response({'status': f'An error occurred: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+
+class InsightsEffortsOverTimeByCategoryView(generics.ListAPIView):
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(
+        operation_description="Get the number of project efforts over time by category",
+        responses={200: "Line graph data of project efforts over time by category."}
+    )
+    def get(self, request, *args, **kwargs):
+        current_company_id = request.session.get('current_company_id')
+        user = request.user
+        start_date = request.query_params.get('start_date')
+        end_date = request.query_params.get('end_date')
+
+        if not current_company_id:
+            return Response({'status': 'No company selected'}, status=status.HTTP_400_BAD_REQUEST)
+
+        project_id = self.kwargs.get('project_id')
+        if not project_id:
+            return Response({'status': 'Project ID is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            company = Company.objects.get(id=current_company_id)
+            project = Project.objects.get(id=project_id, company=company)
+
+            # Check if the user is a member of the company
+            if not Membership.objects.filter(company=company, user=user).exists():
+                return Response({'status': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+
+            # Filter project efforts based on the specified project and value status
+            project_efforts = ProjectEffort.objects.filter(project=project).exclude(value_status='YBC')
+
+            # Apply date filtering if provided
+            if start_date and end_date:
+                try:
+                    start_date = parse_date(start_date)
+                    end_date = parse_date(end_date)
+                    project_efforts = project_efforts.filter(checked_at__gte=start_date, checked_at__lte=end_date)
+                except ValueError:
+                    return Response({'status': 'Invalid date format'}, status=status.HTTP_400_BAD_REQUEST)
+
+            # Aggregate efforts count by project category and date
+            efforts_over_time = project_efforts.values('checked_at', 'design_effort__category__name') \
+                .annotate(count=Count('id'))
+
+            # Prepare data for the line graph
+            line_graph_data = {}
+            for entry in efforts_over_time:
+                checked_at = entry['checked_at'].strftime('%Y-%m-%d')
+                category_name = entry['design_effort__category__name']
+                count = entry['count']
+
+                if category_name not in line_graph_data:
+                    line_graph_data[category_name] = []
+
+                line_graph_data[category_name].append({
+                    'date': checked_at,
+                    'count': count
+                })
+
+            return Response(line_graph_data, status=status.HTTP_200_OK)
+
+        except Company.DoesNotExist:
+            return Response({'status': 'Company does not exist'}, status=status.HTTP_404_NOT_FOUND)
+        
+        except Project.DoesNotExist:
+            return Response({'status': 'Project does not exist or does not belong to the selected company'}, status=status.HTTP_404_NOT_FOUND)
+
+        except Exception as e:
+            return Response({'status': f'An error occurred: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

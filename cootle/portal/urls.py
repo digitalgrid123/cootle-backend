@@ -3,7 +3,7 @@ from django.urls import path, re_path
 from rest_framework import permissions
 from drf_yasg.views import get_schema_view
 from drf_yasg import openapi
-from portal.views import csrf_token, DefaultMappingsView, ResetMappingDataView,  DashboardInfoView, UserRegistrationView, UserVerificationView, UserLoginView, UserLoginVerificationView, UserUpdateView, UserInfoView, CreateCompanyView, SetCurrentCompanyView, EditCompanyView, CompanyListView, InviteUserView, AcceptEmailInvitationView, AcceptInvitationView, RejectInvitationView, InvitationListView, ListInvitationsView, CompanyMembersView, RemoveMemberView, NotificationListView, MarkReadNotifications, RemoveNotificationView, RemoveAllNotificationsView, CreateCategoryView, CategoryListView, CategoryDetailView, RemoveCategoryView, DesignEffortListView, CreateDesignEffortView, UpdateDesignEffortView, DeleteDesignEffortView, CreateMappingView, UpdateMappingView, AddDesignEffortViewMapping, RemoveDesignEffortViewMapping, MappingListView, RetrieveSpecificDesignEffortsView, RemoveMappingView, CreateProjectView, ProjectListView, CreatePurposeView, PurposeListView, EditPurposeView, RemovePurposeView, CreateProjectEffortView, ListProjectEffortView, EditProjectEffortView, DestroyProjectEffortView, UpdateValueStatusView, UpdateCheckedByEffortView, InsightsValueRatioView, InsightsObjectiveRatioView, InsightsEffortByCategoryCountView, InsightsLatestObjectivesView, InsightsLatestValuesView
+from portal.views import csrf_token, DefaultMappingsView, ResetMappingDataView,  DashboardInfoView, UserRegistrationView, UserVerificationView, UserLoginView, UserLoginVerificationView, UserUpdateView, UserInfoView, CreateCompanyView, SetCurrentCompanyView, EditCompanyView, CompanyListView, InviteUserView, AcceptEmailInvitationView, AcceptInvitationView, RejectInvitationView, InvitationListView, ListInvitationsView, CompanyMembersView, RemoveMemberView, NotificationListView, MarkReadNotifications, RemoveNotificationView, RemoveAllNotificationsView, CreateCategoryView, CategoryListView, CategoryDetailView, RemoveCategoryView, DesignEffortListView, CreateDesignEffortView, UpdateDesignEffortView, DeleteDesignEffortView, CreateMappingView, UpdateMappingView, AddDesignEffortViewMapping, RemoveDesignEffortViewMapping, MappingListView, RetrieveSpecificDesignEffortsView, RemoveMappingView, CreateProjectView, ProjectListView, CreatePurposeView, PurposeListView, EditPurposeView, RemovePurposeView, CreateProjectEffortView, ListProjectEffortView, EditProjectEffortView, DestroyProjectEffortView, UpdateValueStatusView, InsightsValueRatioView, InsightsObjectiveRatioView, InsightsEffortByCategoryCountView, InsightsLatestObjectivesView, InsightsLatestValuesView, InsightsEffortsOverTimeByCategoryView
 from rest_framework_simplejwt.views import (
       TokenObtainPairView,
       TokenRefreshView,
@@ -76,12 +76,12 @@ urlpatterns = [
    path('api/project-effort/<int:project_effort_id>/edit/', EditProjectEffortView.as_view(), name='edit-project-effort'),
    path('api/project-effort/<int:project_effort_id>/remove/', DestroyProjectEffortView.as_view(), name='delete-project-effort'),
    path('api/project-effort/<int:project_effort_id>/update/value-status/', UpdateValueStatusView.as_view(), name='update-value-status'),
-   path('api/project-effort/<int:project_effort_id>/update/checked-by/', UpdateCheckedByEffortView.as_view(), name='update-checked-by'),
    path('api/insights/<int:project_id>/value-ratio/', InsightsValueRatioView.as_view(), name='insights-value-ratio'),
    path('api/insights/<int:project_id>/objective-ratio/', InsightsObjectiveRatioView.as_view(), name='insights-objective-ratio'),   
    path('api/insights/<int:project_id>/effort-by-category-count/', InsightsEffortByCategoryCountView.as_view(), name='insights-effort-by-category-count'),
    path('api/insights/<int:project_id>/latest-objectives/', InsightsLatestObjectivesView.as_view(), name='insights-latest-objectives'),
    path('api/insights/<int:project_id>/latest-values/', InsightsLatestValuesView.as_view(), name='insights-latest-values'),
+   path('api/insights/<int:project_id>/efforts-graph/', InsightsEffortsOverTimeByCategoryView.as_view(), name='insights-efforts-graph'),
        # ... your other urls
    path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
    path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
