@@ -31,6 +31,7 @@ from django.db.models.signals import post_save
 from django.dispatch import receiver
 from .utils import load_default_mappings
 from datetime import datetime
+from collections import Counter
 
 # Create your views here.
 
@@ -1828,7 +1829,6 @@ class DestroyProjectEffortView(generics.DestroyAPIView):
 
 
 #Insights Views
-
 class InsightsValueRatioView(generics.ListAPIView):
     permission_classes = [IsAuthenticated]
 
@@ -1869,18 +1869,22 @@ class InsightsValueRatioView(generics.ListAPIView):
                 except ValueError:
                     return Response({'status': 'Invalid date format'}, status=status.HTTP_400_BAD_REQUEST)
 
+            # Get all design effort IDs and their counts
+            design_effort_ids = list(project_efforts.values_list('design_effort_id', flat=True))
+            design_effort_counts = Counter(design_effort_ids)
 
-            # Fetch design efforts associated with project efforts
-            design_efforts = DesignEffort.objects.filter(id__in=project_efforts.values_list('design_effort_id', flat=True))
+            # Retrieve unique design efforts
+            unique_design_efforts = DesignEffort.objects.filter(id__in=design_effort_counts.keys())
 
             # Initialize dictionary to hold value counts
-            value_counts = {value.name: 0 for value in Mapping.objects.filter(company=company, type='VAL')}
+            value_counts = {value.title: 0 for value in Mapping.objects.filter(company=company, type='VAL')}
 
             # Count values based on design efforts' associations with Mapping objects
-            for design_effort in design_efforts:
+            for design_effort in unique_design_efforts:
+                count = design_effort_counts[design_effort.id]
                 for value in Mapping.objects.filter(design_efforts=design_effort, type='VAL'):
                     if value.title in value_counts:
-                        value_counts[value.title] += 1
+                        value_counts[value.title] += count
 
             # Calculate value ratios based on total realized efforts
             total_realized_efforts = project_efforts.count()
@@ -1900,13 +1904,16 @@ class InsightsValueRatioView(generics.ListAPIView):
 
         except Company.DoesNotExist:
             return Response({'status': 'Company does not exist'}, status=status.HTTP_404_NOT_FOUND)
-        
+
         except Project.DoesNotExist:
             return Response({'status': 'Project does not exist or does not belong to the selected company'}, status=status.HTTP_404_NOT_FOUND)
 
+        except Exception as e:
+            return Response({'status': f'An error occurred: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 
 class InsightsObjectiveRatioView(generics.ListAPIView):
-    authentication_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated]
 
     @swagger_auto_schema(
         operation_description="Get the objective ratios of project efforts",
@@ -1945,19 +1952,24 @@ class InsightsObjectiveRatioView(generics.ListAPIView):
                 except ValueError:
                     return Response({'status': 'Invalid date format'}, status=status.HTTP_400_BAD_REQUEST)
 
-            # Fetch design efforts associated with project efforts
-            design_efforts = DesignEffort.objects.filter(id__in=project_efforts.values_list('design_effort_id', flat=True))
+            # Get all design effort IDs and their counts
+            design_effort_ids = list(project_efforts.values_list('design_effort_id', flat=True))
+            design_effort_counts = Counter(design_effort_ids)
 
-            # Initialize dictionary to hold objective counts
-            objective_counts = {objective.name: 0 for objective in Mapping.objects.filter(company=company, type='OBJ')}
+            # Retrieve unique design efforts
+            unique_design_efforts = DesignEffort.objects.filter(id__in=design_effort_counts.keys())
 
-            # Count objectives based on design efforts' associations with Mapping objects
-            for design_effort in design_efforts:
+            # Initialize dictionary to hold value counts
+            objective_counts = {objective.title: 0 for objective in Mapping.objects.filter(company=company, type='OBJ')}
+
+            # Count values based on design efforts' associations with Mapping objects
+            for design_effort in unique_design_efforts:
+                count = design_effort_counts[design_effort.id]
                 for objective in Mapping.objects.filter(design_efforts=design_effort, type='OBJ'):
                     if objective.title in objective_counts:
-                        objective_counts[objective.title] += 1
+                        objective_counts[objective.title] += count
 
-            # Calculate objective ratios based on total realized efforts
+            # Calculate value ratios based on total realized efforts
             total_realized_efforts = project_efforts.count()
             objective_ratios = []
 
@@ -2081,23 +2093,28 @@ class InsightsLatestValuesView(generics.ListAPIView):
                 except ValueError:
                     return Response({'status': 'Invalid date format'}, status=status.HTTP_400_BAD_REQUEST)
             
-            project_efforts = project_efforts.order_by('-checked_at')[:5]
+            # Filter out project efforts without associated values
+            project_efforts_with_values = [
+                effort for effort in project_efforts 
+                if Mapping.objects.filter(design_efforts=effort.design_effort_id, type='VAL').exists()
+            ]
 
-            # Fetch design efforts associated with project efforts
-            design_efforts = DesignEffort.objects.filter(id__in=project_efforts.values_list('design_effort_id', flat=True))
+            # Limit the project efforts to the latest 5
+            latest_project_efforts = sorted(project_efforts_with_values, key=lambda x: x.checked_at, reverse=True)[:5]
 
             # Initialize dictionary to hold latest values
             latest_values = {}
 
             # Serialize project efforts
-            project_efforts_data = ProjectEffortSerializer(project_efforts, many=True).data
+            project_efforts_data = ProjectEffortSerializer(latest_project_efforts, many=True).data
 
             # Get the latest value of each project effort
             for project_effort_data in project_efforts_data:
                 project_effort_id = project_effort_data['id']
-                project_effort = project_efforts.get(id=project_effort_id)
-                design_effort = design_efforts.get(id=project_effort.design_effort_id)
+                project_effort = ProjectEffort.objects.get(id=project_effort_id)
+                design_effort = DesignEffort.objects.get(id=project_effort.design_effort_id)
                 values = Mapping.objects.filter(design_efforts=design_effort, type='VAL')
+                
                 values_data = [value.title for value in values]
                 latest_values[project_effort_id] = {
                     'project_effort': project_effort_data,
@@ -2155,23 +2172,28 @@ class InsightsLatestObjectivesView(generics.ListAPIView):
                 except ValueError:
                     return Response({'status': 'Invalid date format'}, status=status.HTTP_400_BAD_REQUEST)
             
-            project_efforts = project_efforts.order_by('-checked_at')[:5]
+            # Filter out project efforts without associated objectives
+            project_efforts_with_objectives = [
+                effort for effort in project_efforts 
+                if Mapping.objects.filter(design_efforts=effort.design_effort_id, type='OBJ').exists()
+            ]
 
-            # Fetch design efforts associated with project efforts
-            design_efforts = DesignEffort.objects.filter(id__in=project_efforts.values_list('design_effort_id', flat=True))
+            # Limit the project efforts to the latest 5
+            latest_project_efforts = sorted(project_efforts_with_objectives, key=lambda x: x.checked_at, reverse=True)[:5]
 
             # Initialize dictionary to hold latest objectives
             latest_objectives = {}
 
             # Serialize project efforts
-            project_efforts_data = ProjectEffortSerializer(project_efforts, many=True).data
+            project_efforts_data = ProjectEffortSerializer(latest_project_efforts, many=True).data
 
             # Get the latest objectives of each project effort
             for project_effort_data in project_efforts_data:
                 project_effort_id = project_effort_data['id']
-                project_effort = project_efforts.get(id=project_effort_id)
-                design_effort = design_efforts.get(id=project_effort.design_effort_id)
+                project_effort = ProjectEffort.objects.get(id=project_effort_id)
+                design_effort = DesignEffort.objects.get(id=project_effort.design_effort_id)
                 objectives = Mapping.objects.filter(design_efforts=design_effort, type='OBJ')
+                
                 objectives_data = [objective.title for objective in objectives]
                 latest_objectives[project_effort_id] = {
                     'project_effort': project_effort_data,
